@@ -1,0 +1,8 @@
+# Contoh file custom_tickers.txt
+# Rename file ini menjadi "custom_tickers.txt" (hapus ".example") lalu isi
+# dengan ticker tambahan yang ingin Anda pantau, satu per baris, TANPA ".JK"
+#
+# Contoh:
+# PANI
+# CYBR
+# RATU
