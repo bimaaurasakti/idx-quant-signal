@@ -40,7 +40,7 @@ from supabase_client import (
     log_update_run,
 )
 
-PERIOD = "2y"
+PERIOD = "5y"
 MIN_BARS_REQUIRED = 60          # minimal data historis supaya indikator valid
 SLEEP_BETWEEN_TICKERS = 0.4     # detik, menghindari rate limit Yahoo Finance
 
