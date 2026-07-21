@@ -39,6 +39,7 @@ def backtest_signals(d: pd.DataFrame) -> dict:
 
     trades = []
     n = len(d)
+    opens = d["Open"].values
     closes = d["Close"].values
     highs = d["High"].values
     lows = d["Low"].values
@@ -52,7 +53,12 @@ def backtest_signals(d: pd.DataFrame) -> dict:
             entry_idx = i + 1  # entry di hari berikutnya
             if entry_idx >= n:
                 break
-            entry_price = closes[entry_idx]
+            # Entry di harga OPEN hari berikutnya (bukan Close) — ini realistis
+            # karena sinyal baru diketahui SETELAH tutup pasar hari sinyal muncul,
+            # jadi eksekusi paling awal yang mungkin adalah open sesi besoknya.
+            # Metodologi ini disamakan dengan position_manager.py supaya angka
+            # backtest merepresentasikan posisi live dengan akurat.
+            entry_price = opens[entry_idx]
             atr_at_entry = atrs[i]
             tp_price = entry_price + R_MULTIPLE_TP * atr_at_entry
             sl_price = entry_price - SL_ATR_MULT * atr_at_entry

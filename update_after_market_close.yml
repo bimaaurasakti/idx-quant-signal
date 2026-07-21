@@ -1,0 +1,33 @@
+name: Update Sinyal IDX Setelah Tutup Bursa
+
+"on":
+  schedule:
+    # 09:30 UTC = 16:30 WIB, Senin-Jumat.
+    # Sesi 2 IDX tutup 15:49 WIB + pre-closing/post-closing s.d. 16:15 WIB,
+    # jadi 16:30 WIB kasih buffer ~15 menit supaya data di Yahoo Finance
+    # sempat ter-update. Catatan: GitHub Actions cron adalah "best effort" —
+    # bisa molor beberapa menit saat traffic tinggi, ini normal.
+    - cron: "30 9 * * 1-5"
+  workflow_dispatch: {}   # bisa dipicu manual dari tab "Actions" di GitHub
+
+jobs:
+  update-signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Jalankan worker update
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python worker_fetch_and_update.py
