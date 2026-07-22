@@ -46,12 +46,25 @@ def _get_secret(name: str) -> str | None:
     return None
 
 
-def get_client(use_service_role: bool = False) -> "Client":
-    if create_client is None:
-        raise RuntimeError(
-            "Library 'supabase' belum terinstall. Jalankan: pip install supabase"
-        )
+class _ServiceRoleClient:
+    """Minimal wrapper — menyediakan .table() seperti SupabaseClient, tapi
+    menggunakan SyncPostgrestClient langsung dengan service_role key di header
+    Authorization. Me-bypass bug supabase-py v2.x yang tidak menghormati
+    service_role key (RLS tetap di-enforce)."""
 
+    def __init__(self, postgrest_client: Any) -> None:
+        self._postgrest = postgrest_client
+
+    def table(self, name: str) -> Any:
+        return self._postgrest.from_(name)
+
+
+def get_client(use_service_role: bool = False) -> Any:
+    """Return SupabaseClient (anon) atau _ServiceRoleClient (service_role).
+
+    Service_role mode pake PostgREST langsung, bukan create_client(), karena
+    supabase-py v2.x gagal bypass RLS via service_role key.
+    """
     url = _get_secret("SUPABASE_URL")
     key_name = "SUPABASE_SERVICE_ROLE_KEY" if use_service_role else "SUPABASE_ANON_KEY"
     key = _get_secret(key_name)
@@ -60,6 +73,24 @@ def get_client(use_service_role: bool = False) -> "Client":
         raise RuntimeError(
             f"Kredensial Supabase belum diset. Butuh SUPABASE_URL dan {key_name} "
             "sebagai environment variable atau di st.secrets. Lihat README.md."
+        )
+
+    if use_service_role:
+        from postgrest import SyncPostgrestClient
+
+        rest_url = f"{url.rstrip('/')}/rest/v1"
+        pg = SyncPostgrestClient(
+            rest_url,
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+            },
+        )
+        return _ServiceRoleClient(pg)
+
+    if create_client is None:
+        raise RuntimeError(
+            "Library 'supabase' belum terinstall. Jalankan: pip install supabase"
         )
     return create_client(url, key)
 
