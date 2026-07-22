@@ -25,6 +25,7 @@ import time
 import traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
 from tickers_idx import get_all_tickers, get_sector_of
 from data_fetcher import fetch_history
@@ -43,6 +44,7 @@ from supabase_client import (
 PERIOD = "5y"
 MIN_BARS_REQUIRED = 60          # minimal data historis supaya indikator valid
 SLEEP_BETWEEN_TICKERS = 0.4     # detik, menghindari rate limit Yahoo Finance
+TICKER_TIMEOUT = 120            # timeout total per ticker (fetch+processing), cegah hang forever
 
 
 def now_wib() -> datetime:
@@ -85,6 +87,19 @@ def process_one_ticker(client, ticker: str) -> tuple[bool, dict | None]:
     return True, action
 
 
+def _process_with_timeout(client, ticker: str) -> tuple[bool, dict | None]:
+    """Jalankan process_one_ticker dengan timeout. Return (False, None) kalau timeout."""
+    pool = ThreadPoolExecutor(max_workers=1)
+    try:
+        fut = pool.submit(process_one_ticker, client, ticker)
+        return fut.result(timeout=TICKER_TIMEOUT)
+    except FuturesTimeout:
+        print(f"[TIMEOUT] {ticker} — melebihi {TICKER_TIMEOUT}s, dilewati")
+        return False, None
+    finally:
+        pool.shutdown(wait=False)  # jgn block kalo timeout, biar thread selesai sendiri
+
+
 def main():
     start_time = time.time()
     today = now_wib().date()
@@ -112,7 +127,7 @@ def main():
 
     for i, ticker in enumerate(all_tickers, start=1):
         try:
-            ok, action = process_one_ticker(client, ticker)
+            ok, action = _process_with_timeout(client, ticker)
             if ok:
                 processed += 1
                 tag = f"sinyal={action['type']}" if action else "tidak ada aksi posisi"
@@ -121,7 +136,7 @@ def main():
                     position_actions.append(action)
             else:
                 failed += 1
-                print(f"[{i}/{len(all_tickers)}] {ticker} — data tidak cukup, skip")
+                print(f"[{i}/{len(all_tickers)}] {ticker} — data tidak cukup / timeout")
         except Exception as e:
             failed += 1
             print(f"[{i}/{len(all_tickers)}] {ticker} GAGAL: {e}")

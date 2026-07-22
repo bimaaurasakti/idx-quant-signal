@@ -39,7 +39,7 @@ IDX_TICKERS = {
         "ASII", "AUTO", "SMSM", "GJTL", "IMAS", "BRAM", "UNTR", "GDST",
     ],
     "Keuangan_NonBank": [
-        "BFIN", "ADMF", "MFIN", "TUGU", "PNIN", "ASDM", "PNLF",
+        "BFIN", "ADMF", "TUGU", "PNIN", "ASDM", "PNLF",
     ],
     "Teknologi_Digital": [
         "GOTO", "BUKA", "EMTK", "MTDL", "DCII", "WIFI", "CYBR",

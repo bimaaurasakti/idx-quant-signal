@@ -12,6 +12,7 @@ Dua mode client:
 Kredensial dicari dari (urutan prioritas):
   1. Environment variable (works untuk GitHub Actions & local dev)
   2. st.secrets (works untuk Streamlit Community Cloud)
+  3. secrets.toml di root project (local dev — file ini SUDAH di .gitignore)
 """
 from __future__ import annotations
 import os
@@ -29,21 +30,41 @@ except ImportError:
 
 logger = logging.getLogger("idx_quant.supabase_client")
 
+_SECRETS_TOML_CACHE: dict[str, str] | None = None
+
+
+def _load_secrets_toml() -> dict[str, str]:
+    global _SECRETS_TOML_CACHE
+    if _SECRETS_TOML_CACHE is not None:
+        return _SECRETS_TOML_CACHE
+    import tomllib
+
+    path = os.path.join(os.getcwd(), "secrets.toml")
+    try:
+        with open(path, "rb") as f:
+            _SECRETS_TOML_CACHE = tomllib.load(f)
+    except (FileNotFoundError, PermissionError):
+        _SECRETS_TOML_CACHE = {}
+    return _SECRETS_TOML_CACHE
+
 
 # ----------------------------------------------------------------------
 # Client construction
 # ----------------------------------------------------------------------
 def _get_secret(name: str) -> str | None:
+    # 1. Environment variable
     val = os.environ.get(name)
     if val:
         return val
+    # 2. Streamlit secrets (Community Cloud)
     try:
         import streamlit as st
         if hasattr(st, "secrets") and name in st.secrets:
             return st.secrets[name]
     except Exception:
         pass
-    return None
+    # 3. secrets.toml root project (local dev)
+    return _load_secrets_toml().get(name)
 
 
 class _ServiceRoleClient:
