@@ -334,6 +334,33 @@ def fetch_ongoing_positions(client, statuses: list[str]) -> pd.DataFrame:
     ])
 
 
+CLOSED_POSITION_STATUSES = ["CLOSED_TP", "CLOSED_SL", "CLOSED_SIGNAL", "CLOSED_TIME"]
+
+
+def fetch_closed_positions(client, statuses: list[str] | None = None) -> pd.DataFrame:
+    """Riwayat posisi yang SUDAH closed (TP/SL/SIGNAL/TIME) dari ongoing_positions.
+
+    PENTING — ini BEDA dengan backtest_trades:
+    - backtest_trades = simulasi ulang SELURUH histori, di-REPLACE tiap worker run.
+    - Tabel ini (ongoing_positions status closed) = jejak sinyal LIVE, di-APPEND
+      satu-satu tiap kali sebuah posisi real-time benar-benar closed. Tidak pernah
+      direvisi ke belakang. Ini genuine forward-testing track record — dipakai
+      di tab Portfolio (app.py) sebagai bahan evaluasi strategi yang lebih jujur
+      dibanding backtest_trades.
+    """
+    statuses = statuses or CLOSED_POSITION_STATUSES
+    resp = (
+        client.table("ongoing_positions").select("*")
+        .in_("status", statuses)
+        .order("exit_date", desc=True)
+        .execute()
+    )
+    df = pd.DataFrame(resp.data or [])
+    return _coerce_numeric(df, [
+        "atr_at_signal", "entry_price", "tp_price", "sl_price", "exit_price", "return_pct",
+    ])
+
+
 def fetch_position_for_ticker(client, ticker: str, statuses: list[str] | None = None) -> pd.DataFrame:
     q = client.table("ongoing_positions").select("*").eq("ticker", ticker)
     if statuses:
