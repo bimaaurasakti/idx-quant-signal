@@ -166,6 +166,34 @@ def _portfolio_metrics(d: pd.DataFrame) -> dict:
     }
 
 
+# Skema warna exit reason — dipakai di tabel detail & chart breakdown Portfolio.
+# TP/SL deterministik: TP selalu untung, SL selalu rugi (harganya dihitung dari
+# entry ± ATR, lihat backtester.py/position_manager.py) — jadi mewarnai berdasar
+# kategori exit reason 100% konsisten dengan mewarnai berdasar hasil.
+EXIT_REASON_ROW_COLORS = {
+    "Take Profit": "rgba(34, 197, 94, 0.18)",    # hijau
+    "Stop Loss": "rgba(239, 68, 68, 0.18)",      # merah
+    "Sinyal SELL": "rgba(59, 130, 246, 0.12)",   # biru netral
+    "Batas Waktu": "rgba(234, 179, 8, 0.12)",    # amber netral
+}
+EXIT_REASON_CHART_COLORS = {
+    "Take Profit": "#22c55e",
+    "Stop Loss": "#ef4444",
+    "Sinyal SELL": "#3b82f6",
+    "Batas Waktu": "#eab308",
+}
+
+
+def _style_exit_reason_row(row):
+    """Styler.apply(..., axis=1) — background-color per baris berdasar
+    'Alasan Exit'. Kolom teks Alasan Exit TETAP ditampilkan apa adanya di
+    tabel; warna cuma penanda visual tambahan, bukan pengganti (aksesibilitas:
+    jangan andalkan warna sebagai satu-satunya sinyal)."""
+    color = EXIT_REASON_ROW_COLORS.get(row["Alasan Exit"], "")
+    css = f"background-color: {color}" if color else ""
+    return [css] * len(row)
+
+
 # ----------------------------------------------------------------------
 # Sidebar
 # ----------------------------------------------------------------------
@@ -465,32 +493,28 @@ with tab_portfolio:
         )
     else:
         # ---------------- Filter ----------------
-        fc1, fc2, fc3, fc4 = st.columns([1.2, 1.2, 1.4, 1.2])
+        # (Alasan Exit SENGAJA tidak difilter — semua TP/SL/SIGNAL/TIME selalu
+        # tampil bersamaan, dibedakan lewat warna baris, lihat _style_exit_reason_row)
+        fc1, fc2, fc3 = st.columns([1.3, 1.4, 1.3])
         with fc1:
-            reason_opts = closed_df["exit_label"].unique().tolist()
-            reason_pick = st.multiselect(
-                "Alasan Exit", options=reason_opts, default=reason_opts,
-                key="portfolio_reason_filter",
-            )
-        with fc2:
             sektor_opts = sorted(closed_df["sektor"].unique().tolist())
             sektor_pick = st.multiselect(
                 "Sektor", options=sektor_opts, default=[],
                 key="portfolio_sektor_filter",
                 help="Kosongkan untuk menampilkan semua sektor.",
             )
-        with fc3:
+        with fc2:
             min_d, max_d = closed_df["exit_date"].min(), closed_df["exit_date"].max()
             date_pick = st.date_input(
                 "Rentang Tanggal Exit", value=(min_d, max_d),
                 min_value=min_d, max_value=max_d, key="portfolio_date_filter",
             )
-        with fc4:
+        with fc3:
             ticker_search = st.text_input(
                 "Cari Ticker", placeholder="mis. BBCA", key="portfolio_ticker_search",
             )
 
-        f = closed_df[closed_df["exit_label"].isin(reason_pick)]
+        f = closed_df.copy()
         if sektor_pick:
             f = f[f["sektor"].isin(sektor_pick)]
         if isinstance(date_pick, tuple) and len(date_pick) == 2:
@@ -534,6 +558,7 @@ with tab_portfolio:
                 exit_counts.columns = ["Alasan Exit", "Jumlah"]
                 fig_exit = px.bar(
                     exit_counts, x="Alasan Exit", y="Jumlah", color="Alasan Exit",
+                    color_discrete_map=EXIT_REASON_CHART_COLORS,
                     text="Jumlah", title="Breakdown Alasan Exit",
                 )
                 fig_exit.update_layout(showlegend=False)
@@ -580,11 +605,14 @@ with tab_portfolio:
             cols_show = ["Ticker", "Sektor", "Tanggal Sinyal", "Tanggal Entry",
                          "Harga Entry", "Tanggal Exit", "Harga Exit", "Alasan Exit",
                          "Return (%)", "Lama Hold (hari)"]
+            st.caption("🟢 Take Profit  🔴 Stop Loss  🔵 Sinyal SELL  🟡 Batas Waktu")
             st.dataframe(
-                disp[cols_show].style.format({
-                    "Harga Entry": "{:,.0f}", "Harga Exit": "{:,.0f}",
-                    "Return (%)": "{:+.2f}%",
-                }, na_rep="-"),
+                disp[cols_show].style
+                    .apply(_style_exit_reason_row, axis=1)
+                    .format({
+                        "Harga Entry": "{:,.0f}", "Harga Exit": "{:,.0f}",
+                        "Return (%)": "{:+.2f}%",
+                    }, na_rep="-"),
                 use_container_width=True, hide_index=True, height=400,
             )
 
@@ -598,7 +626,7 @@ with tab_portfolio:
             with st.expander("📋 Ringkasan untuk Analisis AI (copy teks di bawah)"):
                 ai_summary = f"""Ringkasan Portfolio Live — IDX Quant Signal Dashboard
 Per tanggal: {pd.Timestamp.now().strftime('%d/%m/%Y')}
-Filter aktif: alasan={reason_pick}, sektor={sektor_pick or 'semua'}
+Filter aktif: sektor={sektor_pick or 'semua'} — semua alasan exit (TP/SL/SIGNAL/TIME) selalu ditampilkan, tidak difilter
 
 METRIK UTAMA
 - Total posisi closed: {metrics['n_closed']}
