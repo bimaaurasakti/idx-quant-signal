@@ -234,14 +234,16 @@ st.sidebar.caption(
     "⚠️ **Disclaimer**: Alat riset kuantitatif berbasis data historis (yfinance). "
     "Winrate & expectancy dihitung dari backtest masa lalu — **tidak menjamin hasil "
     "masa depan**. Bukan nasihat keuangan. Pasar Indonesia hanya mendukung posisi "
-    "**long/spot** — dashboard ini tidak pernah menghasilkan sinyal short."
+    "**long/spot** — dashboard ini tidak pernah menghasilkan sinyal short. Universe "
+    "default: konstituen indeks **IDX30 & LQ45** (blue-chip paling likuid), "
+    "direview ulang oleh BEI tiap kuartal."
 )
 
 # ----------------------------------------------------------------------
 # Header
 # ----------------------------------------------------------------------
 st.title("📈 IDX Quant Signal Dashboard")
-st.caption("Multi-confirmation trend signal system • Data bersama via Supabase • Sumber harga: yfinance")
+st.caption("Multi-confirmation trend signal system • Universe: IDX30 & LQ45 • Data bersama via Supabase • Sumber harga: yfinance")
 
 tab_screener, tab_detail, tab_portfolio, tab_risk, tab_about = st.tabs(
     ["🔍 Screener", "📊 Detail Saham", "💼 Portfolio", "🧮 Risk Calculator", "ℹ️ Tentang Metodologi"]
@@ -343,8 +345,17 @@ with tab_screener:
         )
         filtered = screener_df[screener_df["n_trades"].fillna(0) >= min_trades_filter].copy()
         ranked = filtered.sort_values("expectancy_pct", ascending=False)
+        # Badge IDX30 -- kolom is_idx30 baru ada di screener_results setelah
+        # migrasi schema opsional dijalankan (IMPLEMENTATION_PLAN §2.6/5.7);
+        # fallback aman ke string kosong kalau kolomnya belum ada supaya
+        # dashboard tidak error di masa transisi sebelum migrasi dijalankan.
+        ranked["idx30_badge"] = (
+            ranked["is_idx30"].map({True: "🏅 IDX30", False: ""}).fillna("")
+            if "is_idx30" in ranked.columns else ""
+        )
         display_cols = {
-            "ticker": "Ticker", "sektor": "Sektor", "last_close": "Harga Terakhir",
+            "ticker": "Ticker", "idx30_badge": "Indeks", "sektor": "Sektor",
+            "last_close": "Harga Terakhir",
             "signal_today": "Sinyal Terkini", "trend": "Trend", "rsi": "RSI(14)",
             "winrate": "Winrate (%)", "expectancy_pct": "Expectancy (%)",
             "profit_factor": "Profit Factor", "max_drawdown_pct": "Max Drawdown (%)",
@@ -720,6 +731,23 @@ Semua pengunjung — siapa pun, kapan pun — melihat angka yang **persis sama**
 karena semuanya dibaca dari satu database yang sama. Ini juga menghindari
 setiap pengunjung memicu rate limit Yahoo Finance sendiri-sendiri.
 
+### 🎯 Universe Saham: IDX30 & LQ45
+
+Dashboard ini secara default HANYA memantau saham-saham yang menjadi
+konstituen resmi indeks **LQ45** (45 saham paling likuid & berkapitalisasi
+besar di BEI) — yang otomatis mencakup seluruh **30 saham IDX30**, karena
+IDX30 adalah subset paling elite yang dipilih dari dalam LQ45 sendiri.
+
+BEI me-review & me-rebalance komposisi kedua indeks ini **setiap kuartal**
+(evaluasi mayor Januari/April/Juli/Oktober, efektif Februari/Mei/Agustus/
+November). Artinya daftar saham di `tickers_idx.py` bisa berubah 4x
+setahun. Data di dashboard ini mengikuti hasil evaluasi BEI terakhir yang
+diverifikasi tim pengembang — lihat komentar tanggal di `tickers_idx.py`
+untuk periode & sumber persisnya.
+
+Anda tetap bisa menambah saham lain di luar universe default lewat
+`custom_tickers.txt` (lihat README) — mekanisme ini tidak berubah.
+
 ### Bagaimana sinyal dihasilkan?
 
 Multi-confirmation signal: BUY/SELL hanya muncul kalau minimal 2 dari 3
@@ -769,6 +797,10 @@ cross + RSI di zona sehat), **Volume** (≥20% di atas rata-rata 20 hari).
 
 ### Keterbatasan data
 
+- Universe terbatas pada 45 konstituen IDX30/LQ45 — tidak mencakup saham
+  second-liner/small-cap. BEI merombak komposisi indeks ini setiap kuartal;
+  `tickers_idx.py` perlu diverifikasi ulang & diupdate manual tiap periode
+  supaya universe tetap akurat (lihat komentar maintenance di file tsb).
 - Beberapa saham IDX punya data kosong/tidak lengkap di Yahoo Finance.
 - Backtest tidak memperhitungkan biaya transaksi, pajak, atau slippage nyata.
 - Kalender libur bursa di-hardcode per tahun (lihat `idx_calendar.py`) —

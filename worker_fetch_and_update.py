@@ -27,7 +27,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 
-from tickers_idx import get_all_tickers, get_sector_of
+from tickers_idx import get_all_tickers, get_sector_of, is_idx30, is_lq45
 from data_fetcher import fetch_history
 from signals import generate_signals, latest_signal_summary
 from backtester import backtest_signals
@@ -39,6 +39,7 @@ from supabase_client import (
     replace_price_history,
     replace_backtest_trades,
     log_update_run,
+    fetch_active_position_tickers,
 )
 
 PERIOD = "5y"
@@ -78,6 +79,8 @@ def process_one_ticker(client, ticker: str) -> tuple[bool, dict | None]:
         "max_drawdown_pct": bt["max_drawdown_pct"],
         "n_trades": bt["n_trades"],
         "sharpe_rough": bt["sharpe_rough"],
+        "is_idx30": is_idx30(ticker_clean),
+        "is_lq45": is_lq45(ticker_clean),
     })
 
     replace_price_history(client, ticker_clean, d)
@@ -119,8 +122,19 @@ def main():
         return
 
     client = get_client(use_service_role=True)
-    all_tickers = get_all_tickers(with_suffix=True)
-    print(f"[INFO] Mulai update untuk {len(all_tickers)} ticker pada {today} (WIB)")
+
+    universe_tickers = get_all_tickers(with_suffix=True)
+    # "Grandfathering": ticker yang sudah di luar universe default (IDX30/
+    # LQ45 terbaru) tapi masih punya posisi PENDING_ENTRY/OPEN tetap
+    # diproses sampai posisinya closed sendiri -- lihat
+    # IMPLEMENTATION_PLAN_IDX30_LQ45.md Bagian 2.4.
+    legacy_tickers = [f"{t}.JK" for t in fetch_active_position_tickers(client)]
+    all_tickers = sorted(set(universe_tickers) | set(legacy_tickers))
+    n_legacy = len(set(legacy_tickers) - set(universe_tickers))
+
+    legacy_note = f" + {n_legacy} legacy posisi aktif" if n_legacy else ""
+    print(f"[INFO] Mulai update untuk {len(all_tickers)} ticker pada {today} (WIB) "
+          f"({len(universe_tickers)} universe IDX30/LQ45{legacy_note})")
 
     processed, failed = 0, 0
     position_actions = []

@@ -164,6 +164,16 @@ create policy "public read update_log"        on update_log        for select us
 -- Actions secret) yang bisa menulis, karena service_role BYPASS RLS sepenuhnya.
 
 -- ============================================================================
+-- MIGRATION TAMBAHAN (restrukturisasi universe IDX30 & LQ45, lihat
+-- IMPLEMENTATION_PLAN_IDX30_LQ45.md §2.6/5.7) -- aman dijalankan ulang
+-- kapan pun berkat "if not exists", termasuk kalau sudah pernah dijalankan.
+-- ============================================================================
+alter table screener_results add column if not exists is_idx30 boolean not null default false;
+alter table screener_results add column if not exists is_lq45  boolean not null default false;
+comment on column screener_results.is_idx30 is 'True kalau ticker anggota IDX30 pada periode BEI terakhir (lihat tickers_idx.py::IDX30_TICKERS)';
+comment on column screener_results.is_lq45  is 'True kalau ticker anggota LQ45 pada periode BEI terakhir (lihat tickers_idx.py::is_lq45())';
+
+-- ============================================================================
 -- SELESAI. Setelah run script ini:
 --   1. Ambil Project URL & anon key di: Project Settings > API
 --      -> jadi SUPABASE_URL & SUPABASE_ANON_KEY (untuk Streamlit secrets)

@@ -120,7 +120,7 @@ idx-quant-dashboard/
 ├── indicators.py                   # SMA, EMA, RSI, MACD, ATR, Bollinger (pure pandas/numpy)
 ├── signals.py                      # Logika sinyal multi-konfirmasi (trend+momentum+volume)
 ├── backtester.py                   # Backtest event-driven, entry di Open H+1 (no lookahead)
-├── tickers_idx.py                  # Daftar ~114 ticker IDX default per sektor
+├── tickers_idx.py                  # Universe: 45 konstituen indeks IDX30 & LQ45, per sektor
 ├── test_position_manager.py        # Test logika state machine posisi (jalankan: python test_position_manager.py)
 ├── schema.sql                      # Skema Supabase + Row Level Security
 ├── requirements.txt
@@ -172,11 +172,18 @@ tabel riwayat trade lengkap.
 | Tanggal "Sinyal BUY Besok" meleset di sekitar hari libur | Kalender libur bursa (`idx_calendar.py`) perlu di-update manual tiap tahun setelah BEI merilis kalender resminya (biasanya September tahun sebelumnya). |
 | Worker gagal total (semua ticker) | Cek log run di GitHub Actions tab; kemungkinan `SUPABASE_SERVICE_ROLE_KEY` salah/expired, atau Yahoo Finance sedang down. |
 | Ingin re-test logika ongoing position | `python test_position_manager.py` — test mandiri tanpa perlu koneksi Supabase asli. |
+| Ingin re-test struktur universe saham (IDX30/LQ45) | `python test_tickers_idx.py` — test mandiri, tanpa koneksi apa pun. |
+| Sebuah ticker masih muncul padahal di luar daftar sektor manapun | Wajar kalau ticker itu sedang punya posisi PENDING_ENTRY/OPEN aktif ("grandfathering") — worker tetap memprosesnya sampai posisi closed. Lihat `fetch_active_position_tickers()` di `supabase_client.py`. |
 
 ---
 
 ## 8. Batasan Jujur (baca ini!)
 
+- **Universe saham terbatas pada IDX30 & LQ45** (45 saham blue-chip paling
+  likuid) — tidak mencakup saham second-liner/small-cap. BEI me-rebalance
+  komposisi indeks ini **tiap kuartal** (Feb/Mei/Agu/Nov) — `tickers_idx.py`
+  perlu diverifikasi ulang & diupdate manual pada setiap periode supaya
+  universe tetap akurat (lihat komentar maintenance di file tsb).
 - Strategi di dashboard ini adalah **trend-following klasik dengan
   multi-konfirmasi** — pendekatan yang sudah dikenal luas, bukan strategi
   proprietary rahasia kelas hedge fund besar.

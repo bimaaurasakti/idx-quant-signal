@@ -2,54 +2,83 @@
 Daftar default ticker saham Indonesia (IDX) untuk yfinance.
 Semua ticker IDX di Yahoo Finance memakai suffix '.JK'.
 
-Yahoo Finance TIDAK meng-cover seluruh 900+ emiten IDX dengan kualitas data
-yang layak (banyak yang datanya kosong/tidak likuid). Daftar di bawah ini
-berisi saham-saham yang secara umum aktif diperdagangkan dan datanya
-tersedia dengan baik di Yahoo Finance, dikelompokkan per sektor.
+UNIVERSE: konstituen resmi indeks LQ45 (otomatis mencakup seluruh anggota
+IDX30, karena IDX30 adalah 30 saham paling likuid/berkapitalisasi besar
+YANG DIPILIH DARI DALAM LQ45 -- lihat IMPLEMENTATION_PLAN.md Bagian 1).
+Union(IDX30, LQ45) == LQ45, jadi cukup satu daftar 45 saham di bawah ini.
 
-Anda bisa menambah/mengurangi ticker sendiri di file ini, atau upload
-file custom_tickers.txt (satu ticker per baris, tanpa '.JK') dan aplikasi
-akan otomatis menggabungkannya.
+Ticker anggota IDX30 ditandai terpisah di IDX30_TICKERS (dipakai utk badge
+"IDX30" di UI -- opsional, lihat IMPLEMENTATION_PLAN.md Bagian 2.5) tanpa
+mengubah struktur sektor di bawah.
+
+=====================================================================
+PENTING -- JADWAL UPDATE: BEI me-rebalance LQ45/IDX30 SETIAP KUARTAL
+    (evaluasi mayor Januari/April/Juli/Oktober, EFEKTIF Februari/Mei/
+    Agustus/November -- kebijakan berlaku sejak April 2024, LEBIH SERING
+    dari anggapan umum "2x setahun"). Daftar di bawah adalah konstituen
+    periode 4 Mei 2026 -- 31 Juli 2026, hasil evaluasi BEI No.
+    Peng-00067/BEI.POP/04-2026 (diverifikasi 27 Juli 2026).
+
+    Periode ini SEGERA BERAKHIR. BEI sudah mengumumkan (14 Juli 2026)
+    evaluasi berikutnya akan dilakukan akhir Juli 2026, efektif awal
+    Agustus 2026, DENGAN KRITERIA BARU yang mengeluarkan saham "High
+    Shareholding Concentration" (HSC) -- BEI mengidentifikasi 51 saham
+    HSC (naik dari 14), jadi rotasi kali ini berpotensi lebih besar dari
+    biasanya.
+
+    SEBELUM PAKAI FILE INI DI PRODUCTION: verifikasi ulang komposisi
+    terbaru di https://www.idx.co.id/id/produk/indeks/ (menu Berita >
+    Pengumuman, cari "Evaluasi Indeks IDX30 LQ45 IDX80") atau berita
+    pasar modal (Bisnis.com/Kontan/IDX Channel, keyword "rebalancing
+    LQ45"). Kalau sudah ada daftar baru yang efektif, update dict di
+    bawah SEBELUM menjalankan migrasi database (IMPLEMENTATION_PLAN.md
+    Fase 3).
+=====================================================================
+
+Yahoo Finance tidak meng-cover seluruh 900+ emiten IDX dengan kualitas
+data yang layak, tapi konstituen LQ45/IDX30 (blue-chip paling likuid)
+umumnya punya data bagus di Yahoo Finance -- membatasi universe ke
+saham-saham ini juga mengurangi risiko YFTickerMissingError/data kosong
+dibanding universe lama yang mencakup banyak saham second-liner.
+
+Anda bisa menambah ticker LAIN DI LUAR universe default ini lewat file
+custom_tickers.txt (satu ticker per baris, tanpa '.JK') -- mekanisme ini
+TIDAK BERUBAH dari versi sebelumnya.
 """
 
 IDX_TICKERS = {
     "Perbankan": [
-        "BBCA", "BBRI", "BMRI", "BBNI", "BRIS", "BJTM", "BJBR", "BTPS",
-        "BNGA", "BDMN", "PNBN", "MEGA", "AGRO", "BABP", "BBTN", "BNLI",
-        "ARTO", "BBYB", "BANK", "NISP",
+        "BBCA", "BBRI", "BMRI", "BBNI", "BBTN",
     ],
     "Consumer_Goods": [
-        "UNVR", "ICBP", "INDF", "MYOR", "ULTJ", "CPIN", "JPFA", "GGRM",
-        "HMSP", "KLBF", "SIDO", "TSPC", "KAEF", "AMRT", "MAPI", "ACES",
-        "CMRY", "ROTI", "STTP", "MIDI",
+        "UNVR", "ICBP", "INDF", "CPIN", "JPFA", "KLBF", "AMRT", "MAPI", "HRTA",
     ],
-    "Infrastruktur_Energi": [
-        "TLKM", "EXCL", "ISAT", "TOWR", "TBIG", "PGAS", "PTBA", "ADRO",
-        "ITMG", "MEDC", "AKRA", "ELSA", "PGEO", "BREN", "JSMR", "META",
+    "Energi_Komoditas": [
+        "ADRO", "ITMG", "PTBA", "AKRA", "MEDC", "PGAS", "PGEO",
+        "AADI", "BRPT", "CUAN", "ESSA",
+    ],
+    "Telekomunikasi_Infrastruktur": [
+        "TLKM", "EXCL", "ISAT", "TOWR",
     ],
     "Pertambangan": [
-        "ANTM", "INCO", "TINS", "MDKA", "HRUM", "BUMI", "PTRO", "DOID",
-        "MBMA", "NCKL", "AMMN",
+        "ANTM", "INCO", "MDKA", "BUMI", "MBMA", "AMMN", "ADMR", "DEWA",
     ],
-    "Properti_Konstruksi": [
-        "BSDE", "CTRA", "PWON", "SMRA", "ASRI", "PANI", "WIKA", "WSKT",
-        "PTPP", "ADHI", "SMGR", "INTP", "MTLA", "APLN",
-    ],
-    "Otomotif_Industri": [
-        "ASII", "AUTO", "SMSM", "GJTL", "IMAS", "BRAM", "UNTR", "GDST",
-    ],
-    "Keuangan_NonBank": [
-        "BFIN", "ADMF", "TUGU", "PNIN", "ASDM", "PNLF",
+    "Industri_Manufaktur": [
+        "ASII", "UNTR", "INKP", "SMGR",
     ],
     "Teknologi_Digital": [
-        "GOTO", "BUKA", "EMTK", "MTDL", "DCII", "WIFI", "CYBR",
+        "GOTO", "EMTK", "WIFI", "SCMA",
     ],
-    "Ritel_Konsumsi": [
-        "MAPA", "LPPF", "RALS", "ERAA", "CSAP", "HERO",
-    ],
-    "Kesehatan": [
-        "MIKA", "SILO", "HEAL", "PRDA", "SAME",
-    ],
+}
+
+# 30 anggota IDX30 -- subset paling elite (likuiditas & mkt-cap tertinggi)
+# yang dipilih dari dalam LQ45 di atas. Semua ticker di sini WAJIB juga ada
+# di IDX_TICKERS (divalidasi di test_tickers_idx.py).
+IDX30_TICKERS = {
+    "AADI", "ADRO", "ADMR", "AMRT", "ANTM", "ASII", "BBCA", "BBNI", "BBRI",
+    "BMRI", "BRPT", "BUMI", "CPIN", "EMTK", "GOTO", "ICBP", "INCO", "INDF",
+    "INKP", "JPFA", "KLBF", "MBMA", "MDKA", "MEDC", "PGAS", "PGEO", "PTBA",
+    "TLKM", "UNTR", "UNVR",
 }
 
 
@@ -81,3 +110,20 @@ def get_sector_of(ticker_no_suffix: str) -> str:
         if t in tickers:
             return sector
     return "Lainnya"
+
+
+def is_idx30(ticker_no_suffix: str) -> bool:
+    """True kalau ticker ini anggota IDX30 (subset paling elite dari LQ45)."""
+    return ticker_no_suffix.upper().replace(".JK", "") in IDX30_TICKERS
+
+
+def is_lq45(ticker_no_suffix: str) -> bool:
+    """True kalau ticker ini termasuk 45 konstituen default (LQ45) di
+    IDX_TICKERS -- False untuk ticker legacy/grandfathered (posisi aktif
+    dari ticker yang baru keluar universe) atau custom_tickers.txt yang
+    berada di luar daftar LQ45 resmi."""
+    t = ticker_no_suffix.upper().replace(".JK", "")
+    for tickers in IDX_TICKERS.values():
+        if t in tickers:
+            return True
+    return False

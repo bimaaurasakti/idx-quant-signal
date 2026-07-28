@@ -173,6 +173,8 @@ def upsert_screener_result(client, row: dict) -> None:
         "max_drawdown_pct": _safe_float(row.get("max_drawdown_pct")),
         "n_trades": _safe_int(row.get("n_trades")),
         "sharpe_rough": _safe_float(row.get("sharpe_rough")),
+        "is_idx30": bool(row.get("is_idx30", False)),
+        "is_lq45": bool(row.get("is_lq45", False)),
     }
     client.table("screener_results").upsert(clean, on_conflict="ticker").execute()
 
@@ -279,6 +281,23 @@ def _coerce_numeric(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
     return df
+
+
+def fetch_active_position_tickers(client) -> list[str]:
+    """Ticker (TANPA suffix .JK) yang sedang berstatus PENDING_ENTRY atau
+    OPEN. Dipakai worker_fetch_and_update.py untuk 'grandfathering': ticker
+    yang sudah di luar default universe (IDX30/LQ45 terbaru, lihat
+    tickers_idx.py) tapi masih punya posisi aktif tetap di-fetch & di-update
+    sampai posisinya closed secara alami -- supaya tidak ada posisi live
+    yang 'ditinggal' begitu saja hanya karena rebalancing indeks BEI
+    mengeluarkan tickernya dari LQ45/IDX30. Lihat IMPLEMENTATION_PLAN
+    Bagian 2.4."""
+    resp = (
+        client.table("ongoing_positions").select("ticker")
+        .in_("status", ["PENDING_ENTRY", "OPEN"]).execute()
+    )
+    rows = resp.data or []
+    return sorted({r["ticker"] for r in rows})
 
 
 def fetch_screener_results(client) -> pd.DataFrame:
