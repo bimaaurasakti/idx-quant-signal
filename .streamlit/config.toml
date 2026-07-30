@@ -1,0 +1,15 @@
+[theme]
+# Tema visual dasar -- biru sbg primaryColor dipakai Streamlit utk elemen
+# "primary" (termasuk st.button(type="primary") yg dipakai ui_layout.py
+# utk highlight menu aktif di sidebar kiri & tombol submit di Backtest Lab).
+# Boleh disesuaikan sesuai selera brand; ini cuma starting point yg netral
+# & profesional utk dashboard finansial.
+primaryColor = "#10b981"            # Hijau Emerald
+backgroundColor = "#131722"         # Dark Navy khas TradingView
+secondaryBackgroundColor = "#1e222d" # Charcoal Slate
+textColor = "#d1d4dc"               # Light Gray
+
+[server]
+# Batasi ukuran upload default (dashboard ini tidak butuh upload file dari
+# user sama sekali, tapi lebih baik eksplisit drpd default Streamlit).
+maxUploadSize = 5
