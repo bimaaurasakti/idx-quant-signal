@@ -29,10 +29,21 @@ SL_ATR_MULT = 1.0        # stop loss = 1x ATR
 MAX_HOLD_DAYS = 20       # keluar paksa kalau belum kena TP/SL dalam 20 hari
 
 
-def backtest_signals(d: pd.DataFrame) -> dict:
+def backtest_signals(
+    d: pd.DataFrame,
+    r_multiple_tp: float = R_MULTIPLE_TP,
+    sl_atr_mult: float = SL_ATR_MULT,
+    max_hold_days: int = MAX_HOLD_DAYS,
+) -> dict:
     """
     Input: DataFrame hasil generate_signals() (punya kolom Signal, ATR14, Close, High, Low).
     Output: dict metrik + list trade detail.
+
+    r_multiple_tp/sl_atr_mult/max_hold_days: opsional, default = konstanta
+    modul di atas (perilaku 100% identik dgn versi lama kalau tidak diisi).
+    Dibuat configurable utk Backtest Lab (lihat IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md
+    §3.5) -- worker_fetch_and_update.py yg manggil backtest_signals(d) TANPA
+    argumen tambahan tetap dapat hasil identik lewat default ini.
     """
     if d is None or len(d) < 60:
         return _empty_result()
@@ -60,14 +71,14 @@ def backtest_signals(d: pd.DataFrame) -> dict:
             # backtest merepresentasikan posisi live dengan akurat.
             entry_price = opens[entry_idx]
             atr_at_entry = atrs[i]
-            tp_price = entry_price + R_MULTIPLE_TP * atr_at_entry
-            sl_price = entry_price - SL_ATR_MULT * atr_at_entry
+            tp_price = entry_price + r_multiple_tp * atr_at_entry
+            sl_price = entry_price - sl_atr_mult * atr_at_entry
 
             exit_price = None
             exit_reason = None
             exit_idx = None
 
-            for j in range(entry_idx + 1, min(entry_idx + 1 + MAX_HOLD_DAYS, n)):
+            for j in range(entry_idx + 1, min(entry_idx + 1 + max_hold_days, n)):
                 if lows[j] <= sl_price:
                     exit_price = sl_price
                     exit_reason = "SL"
@@ -86,7 +97,7 @@ def backtest_signals(d: pd.DataFrame) -> dict:
 
             if exit_price is None:
                 # max holding period tercapai, exit di close terakhir yang tersedia
-                last_j = min(entry_idx + MAX_HOLD_DAYS, n - 1)
+                last_j = min(entry_idx + max_hold_days, n - 1)
                 exit_price = closes[last_j]
                 exit_reason = "TIME_EXIT"
                 exit_idx = last_j
