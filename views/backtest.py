@@ -127,13 +127,25 @@ def render(ctx) -> None:
     with st.form("bt_run_form"):
         f1, f2 = st.columns(2)
         with f1:
-            max_thr = max(len(selected), 1)
-            confirmation_threshold = st.slider(
-                "Minimal Konfirmasi (jumlah indikator yang harus sepakat)",
-                1, max_thr, value=max(1, (max_thr + 1) // 2),
-                help="Sinyal BUY/SELL hanya muncul kalau minimal sekian indikator terpilih "
-                     "sepakat searah di bar yang sama.",
-            )
+            n_selected = len(selected)
+            if n_selected >= 2:
+                confirmation_threshold = st.slider(
+                    "Minimal Konfirmasi (jumlah indikator yang harus sepakat)",
+                    1, n_selected, value=max(1, (n_selected + 1) // 2),
+                    help="Sinyal BUY/SELL hanya muncul kalau minimal sekian indikator terpilih "
+                         "sepakat searah di bar yang sama.",
+                )
+            else:
+                # Streamlit melarang slider dgn min_value == max_value -- kalau
+                # cuma 0/1 indikator terpilih, tidak ada rentang berarti utk
+                # digeser (butuh minimal 2 indikator baru "threshold" masuk akal).
+                confirmation_threshold = 1
+                st.caption(
+                    "Minimal Konfirmasi: **1** — pilih minimal 2 indikator di atas untuk "
+                    "mengatur seberapa banyak yang harus sepakat."
+                    if n_selected == 1 else
+                    "Pilih minimal 1 indikator di atas dulu untuk mengatur Minimal Konfirmasi."
+                )
         with f2:
             st.caption(" ")
             st.caption(f"Dari {len(selected)} indikator terpilih.")
