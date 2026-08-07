@@ -1,184 +1,124 @@
 """
 ui_layout.py
 ============
-Layer layout & UI chrome: top bar, dua sidebar collapsible (kiri = navigasi
-gaya admin panel, kanan = pengaturan/gear icon), dan helper CSS ringan.
+Layer chrome UI: header brand & isi panel Pengaturan (popover). Sejak Fase 1
+redesign (lihat IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §4.2-4.3 & §9.1),
+modul ini JAUH lebih tipis dari versi sebelumnya.
 
-ARSITEKTUR: modul ini SENGAJA tidak memakai st.sidebar bawaan Streamlit.
-Streamlit cuma punya satu sidebar native (selalu di kiri, tidak bisa
-diduplikasi/dipindah), jadi kedua panel di sini dibangun dari st.columns()
-yang lebarnya berubah dinamis sesuai st.session_state, dipoles CSS ringan.
-Ini pola "reflow" (konten utama menyempit saat panel dibuka), bukan overlay
-mengambang -- jauh lebih robust lintas versi Streamlit dibanding hack CSS
-position:fixed di atas struktur DOM internal Streamlit.
+RIWAYAT ARSITEKTUR (penting utk konteks): versi lama modul ini SENGAJA tidak
+memakai st.sidebar/multi-page native karena API Streamlit versi lama tidak
+mendukung itu dgn baik (sidebar tunggal, tidak bisa diduplikasi/dipindah) --
+makanya dibangun 2 kolom custom (nav kiri + settings kanan) dari st.columns()
++ st.session_state, dipoles CSS manual yg menarget elemen internal Streamlit
+(rapuh lintas versi -- risiko yg SUDAH diakui sendiri di versi lama modul
+ini).
 
-Lihat IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md §1.2 dan §2 untuk detail
-alasan desain.
+Streamlit sekarang (>=1.48, lihat requirements.txt) punya st.navigation()
+programatik (BUKAN folder "pages/" auto-detect -- jadi tetap tidak bentrok
+dgn alasan penamaan folder "views/" yg sudah ada) + st.popover() native.
+app.py sekarang yg langsung memanggil keduanya (lihat app.py::main()) --
+modul ini tinggal menyediakan 2 potongan konten: header brand & isi popover
+Pengaturan. Fungsi routing lama (init_layout_state, get_layout_columns,
+render_left_nav, NAV_ITEMS, VALID_PAGES) SUDAH DIHAPUS -- digantikan native
+oleh st.navigation()/st.Page() di app.py.
 """
 from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-# Daftar menu navigasi kiri: (page_key, label_dengan_icon)
-# page_key dipakai sbg nilai st.session_state.current_page dan sbg key
-# routing di app.py.
-NAV_ITEMS = [
-    ("screener", "🔍 Screener"),
-    ("backtest", "🧪 Backtest Lab"),
-    ("detail", "📊 Detail Saham"),
-    ("portfolio", "💼 Portfolio"),
-    ("risk", "🧮 Risk Calculator"),
-    ("about", "ℹ️ Tentang Metodologi"),
-]
-
-VALID_PAGES = {key for key, _ in NAV_ITEMS}
-
-
-def init_layout_state() -> None:
-    """Inisialisasi session_state layout. Panggil sekali di awal tiap run."""
-    st.session_state.setdefault("nav_open", True)      # nav kiri: default terbuka
-    st.session_state.setdefault("settings_open", False)  # settings kanan: default tertutup
-    st.session_state.setdefault("current_page", "screener")
-
 
 def inject_css() -> None:
     """
-    CSS ringan supaya panel kiri/kanan terasa seperti sidebar, bukan kolom
-    polos.
+    CSS global app ini -- dipusatkan lewat theme.get_global_css() (design
+    system tunggal, lihat theme.py & IMPLEMENTATION_PLAN_UI_REDESIGN_
+    STOCKBIT.md §4.4/§6). ui_layout.py tidak menyimpan CSS literal sendiri
+    supaya tidak ada 2 sumber kebenaran warna/style yang bisa drift.
 
-    CATATAN VERIFIKASI: target selector di sini pakai kelas CSS custom yang
-    kita suntik sendiri (bukan menargetkan data-testid internal Streamlit),
-    supaya lebih tahan terhadap perubahan struktur DOM Streamlit antar versi.
-    Tetap disarankan cek visual di browser nyata setelah deploy.
+    CATATAN VERIFIKASI (tetap berlaku): selector CSS di theme.py sengaja
+    memakai kelas custom (.iqs-*) yang kita suntik sendiri, bukan menargetkan
+    data-testid internal Streamlit, supaya lebih tahan terhadap perubahan
+    struktur DOM Streamlit antar versi. Tetap disarankan cek visual di
+    browser nyata setelah deploy.
     """
+    import theme
+    st.markdown(theme.get_global_css(), unsafe_allow_html=True)
+
+
+def render_brand_header(title: str = "IDX Quant Signal") -> None:
+    """Baris brand paling atas -- dipanggil SEBELUM st.navigation() di
+    app.py::main(), supaya tampil di atas nav. Menggantikan render_topbar()
+    versi lama yang punya tombol hamburger/gear manual: toggle nav/settings
+    sekarang ditangani native oleh st.navigation()/st.popover(), jadi tidak
+    perlu tombol custom lagi di sini.
+
+    Tagline di bawah judul (dulu st.caption() yang dipanggil terpisah di
+    app.py sebelum routing) dipindah ke sini supaya konsisten tampil di
+    semua halaman apa pun cara navigasinya."""
+    import theme
     st.markdown(
-        """
-        <style>
-        hr.topbar-divider {
-            margin: 0.2rem 0 0.9rem 0;
-            border: none;
-            border-top: 1px solid rgba(128, 128, 128, 0.25);
-        }
-        div[data-testid="stButton"] > button {
-            border-radius: 8px;
-        }
-        </style>
-        """,
+        f"""<div style="padding:2px 0 6px;">
+<div style="display:flex;align-items:center;gap:8px;">
+<span style="font-size:21px;line-height:1;">📈</span>
+<span class="iqs-mono" style="font-size:18px;font-weight:700;color:{theme.COLORS['text_primary']};">{title}</span>
+</div>
+<div style="font-size:12.5px;color:{theme.COLORS['text_secondary']};margin-top:2px;">
+Multi-confirmation trend signal system &bull; Universe: IDX30 &amp; LQ45 &bull; Data bersama via Supabase &bull; Sumber harga: yfinance
+</div>
+</div>""",
         unsafe_allow_html=True,
     )
 
 
-def render_topbar(title: str = "📈 IDX Quant Signal Dashboard") -> None:
+def render_settings_content(last_update: dict | None, render_page_specific=None) -> dict:
     """
-    Top bar persisten (selalu terlihat, tidak ikut collapse): tombol
-    hamburger kiri (toggle nav) - judul - tombol gear kanan (toggle
-    pengaturan).
+    Isi panel Pengaturan -- dipanggil dari DALAM `with st.popover(...):` di
+    app.py::main() (lihat IMPLEMENTATION_PLAN §4.3). Logika & isi konten
+    IDENTIK dengan render_right_settings() versi lama (status update
+    terakhir, kontrol khusus halaman aktif, disclaimer) -- HANYA pembungkus
+    st.container(border=True) yang dihapus, karena st.popover() sendiri
+    sudah jadi wadah kontainer; container bersarang di dalamnya jadi kotak
+    di dalam kotak yang redundan.
 
-    CATATAN: klik st.button() SUDAH otomatis memicu Streamlit rerun ulang
-    seluruh script dari atas -- perubahan session_state di bawah langsung
-    terbaca oleh get_layout_columns() pada rerun yang sama. TIDAK perlu
-    st.rerun() manual di sini.
-    """
-    c_menu, c_title, c_gear = st.columns([1, 10, 1])
-    with c_menu:
-        if st.button("☰", key="btn_toggle_nav", help="Buka/tutup menu navigasi"):
-            st.session_state.nav_open = not st.session_state.nav_open
-    with c_title:
-        st.markdown(f"#### {title}")
-    with c_gear:
-        if st.button("⚙️", key="btn_toggle_settings", help="Buka/tutup pengaturan"):
-            st.session_state.settings_open = not st.session_state.settings_open
-    st.markdown('<hr class="topbar-divider">', unsafe_allow_html=True)
-
-
-def get_layout_columns():
-    """
-    Return (col_nav | None, col_main, col_settings | None) sesuai kombinasi
-    nav_open/settings_open saat ini. Lebar kolom menyesuaikan otomatis.
-    """
-    nav_open = st.session_state.nav_open
-    settings_open = st.session_state.settings_open
-
-    if nav_open and settings_open:
-        col_nav, col_main, col_settings = st.columns([1.3, 3.4, 1.3])
-        return col_nav, col_main, col_settings
-    if nav_open:
-        col_nav, col_main = st.columns([1.3, 4.7])
-        return col_nav, col_main, None
-    if settings_open:
-        col_main, col_settings = st.columns([4.7, 1.3])
-        return None, col_main, col_settings
-    return None, st.container(), None
-
-
-def render_left_nav() -> None:
-    """Render daftar menu navigasi di panel kiri, highlight halaman aktif.
-
-    CATATAN: dipakai st.container(border=True) -- bukan pola
-    st.markdown('<div>...</div>') -- karena widget Streamlit yang dirender
-    di antara dua panggilan st.markdown mentah TIDAK benar-benar ter-nest
-    di dalam div tsb (tiap elemen Streamlit jadi blok DOM terpisah).
-    st.container(border=True) adalah cara native yang memang membungkus
-    child widget dengan benar."""
-    with st.container(border=True):
-        st.markdown("###### Menu")
-        for key, label in NAV_ITEMS:
-            is_active = st.session_state.current_page == key
-            if st.button(
-                label,
-                key=f"nav_{key}",
-                use_container_width=True,
-                type="primary" if is_active else "secondary",
-            ):
-                st.session_state.current_page = key
-
-
-def render_right_settings(last_update: dict | None, render_page_specific=None) -> dict:
-    """
-    Render panel pengaturan kanan. Selalu berisi status update terakhir +
-    disclaimer. `render_page_specific`, kalau diberikan, adalah callable
-    yang dipanggil untuk menyisipkan kontrol khusus halaman aktif (mis.
-    filter sektor & minimal trade, HANYA relevan saat current_page ==
-    "screener" -- lihat views/screener.py) dan harus mengembalikan dict.
+    `render_page_specific`, kalau diberikan, adalah callable yang dipanggil
+    untuk menyisipkan kontrol khusus halaman aktif (mis. filter sektor &
+    minimal trade, HANYA relevan saat halaman aktif == Screener -- lihat
+    views/screener.py) dan harus mengembalikan dict.
 
     Return dict gabungan hasil dari render_page_specific (kosong kalau
     tidak ada).
     """
-    with st.container(border=True):
-        st.markdown("###### ⚙️ Pengaturan")
-
-        if last_update:
-            try:
-                run_at_wib = pd.to_datetime(last_update["run_at"]).tz_convert("Asia/Jakarta")
-                ts_str = run_at_wib.strftime("%d/%m/%Y %H:%M")
-            except Exception:
-                ts_str = str(last_update.get("run_at", "?"))
-            status_icon = {"OK": "🟢", "SKIPPED": "🟡", "FAILED": "🔴"}.get(
-                last_update.get("status"), "⚪"
-            )
-            st.markdown(
-                f"**{status_icon} Data terakhir diperbarui:**  \n"
-                f"{ts_str} WIB  \n"
-                f"_{last_update.get('tickers_processed', '?')} saham diproses_"
-            )
-        else:
-            st.warning("Belum ada riwayat update.")
-
-        st.caption(
-            "Data diperbarui **otomatis setiap hari bursa** ±16:30 WIB oleh "
-            "proses terjadwal — bukan saat Anda membuka halaman ini."
+    if last_update:
+        try:
+            run_at_wib = pd.to_datetime(last_update["run_at"]).tz_convert("Asia/Jakarta")
+            ts_str = run_at_wib.strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            ts_str = str(last_update.get("run_at", "?"))
+        status_icon = {"OK": "🟢", "SKIPPED": "🟡", "FAILED": "🔴"}.get(
+            last_update.get("status"), "⚪"
         )
-
-        page_settings: dict = {}
-        if render_page_specific is not None:
-            page_settings = render_page_specific() or {}
-
-        st.markdown("---")
-        st.caption(
-            "⚠️ **Disclaimer**: Alat riset kuantitatif berbasis data historis (yfinance). "
-            "Winrate & expectancy dihitung dari backtest masa lalu — **tidak menjamin hasil "
-            "masa depan**. Bukan nasihat keuangan. Pasar Indonesia hanya mendukung posisi "
-            "**long/spot** — dashboard ini tidak pernah menghasilkan sinyal short. Universe "
-            "default: konstituen indeks **IDX30 & LQ45**, direview ulang oleh BEI tiap kuartal."
+        st.markdown(
+            f"**{status_icon} Data terakhir diperbarui:**  \n"
+            f"{ts_str} WIB  \n"
+            f"_{last_update.get('tickers_processed', '?')} saham diproses_"
         )
+    else:
+        st.warning("Belum ada riwayat update.")
+
+    st.caption(
+        "Data diperbarui **otomatis setiap hari bursa** ±16:30 WIB oleh "
+        "proses terjadwal — bukan saat Anda membuka halaman ini."
+    )
+
+    page_settings: dict = {}
+    if render_page_specific is not None:
+        page_settings = render_page_specific() or {}
+
+    st.markdown("---")
+    st.caption(
+        "⚠️ **Disclaimer**: Alat riset kuantitatif berbasis data historis (yfinance). "
+        "Winrate & expectancy dihitung dari backtest masa lalu — **tidak menjamin hasil "
+        "masa depan**. Bukan nasihat keuangan. Pasar Indonesia hanya mendukung posisi "
+        "**long/spot** — dashboard ini tidak pernah menghasilkan sinyal short. Universe "
+        "default: konstituen indeks **IDX30 & LQ45**, direview ulang oleh BEI tiap kuartal."
+    )
     return page_settings

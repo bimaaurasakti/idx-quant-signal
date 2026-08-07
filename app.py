@@ -15,17 +15,24 @@ Butuh secrets (lihat .streamlit/secrets.toml.example / README.md):
 PENTING: Ini adalah alat riset kuantitatif, BUKAN nasihat keuangan.
 
 --------------------------------------------------------------------------
-ARSITEKTUR LAYOUT (lihat IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md §2 utk
-alasan desain lengkap):
-  - app.py ini SEKARANG orkestrator tipis: init state layout, top bar,
-    kolom dinamis (nav kiri + settings kanan, keduanya collapsible), lalu
-    routing ke modul views/*.py sesuai halaman aktif.
-  - st.sidebar bawaan Streamlit TIDAK dipakai sama sekali -- diganti
-    ui_layout.py yang membangun 2 panel independen dari st.columns() +
-    st.session_state (lihat ui_layout.py).
-  - Isi tiap halaman (dulu st.tabs()) sekarang berupa modul terpisah di
-    folder views/ (SENGAJA bukan "pages/" -- Streamlit auto-detect nama
-    folder itu sbg multi-page-app native & akan bentrok dgn nav custom kita).
+ARSITEKTUR LAYOUT -- FASE 1 REDESIGN (lihat
+IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §4.2-4.3 & §9.1 utk alasan
+desain lengkap; §1.2 IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md utk sejarah
+kenapa arsitektur lama dulu dipilih):
+  - Navigasi SEKARANG memakai st.navigation()/st.Page() NATIVE, posisi di
+    atas ("position=top"). Ini API PROGRAMATIK (dipanggil langsung di sini,
+    BUKAN folder "pages/" auto-detect) -- jadi TETAP tidak bentrok dgn
+    alasan penamaan folder "views/" (bukan "pages/") yg sudah didokumentasikan
+    di README & IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md.
+  - Panel "Pengaturan" sekarang st.popover() native, bukan kolom kanan
+    custom -- tidak lagi "mencuri" lebar dari konten utama.
+  - Isi tiap halaman tetap modul terpisah di folder views/ (TIDAK berubah
+    dari arsitektur sebelumnya) -- yang berubah HANYA cara routing ke sana.
+  - AppContext (client + settings) tidak bisa dioper langsung sbg argumen
+    ke st.Page() (Streamlit memanggil fungsi halaman tanpa argumen), jadi
+    tiap page_xxx() di bawah membangun ulang ctx-nya sendiri lewat
+    _current_ctx() yang membaca dari st.session_state (diisi sekali di
+    main() sebelum st.navigation() dipanggil).
 --------------------------------------------------------------------------
 """
 from __future__ import annotations
@@ -54,19 +61,12 @@ class AppContext:
     settings: dict = field(default_factory=dict)
 
 
-ROUTES = {
-    "screener": screener.render,
-    "backtest": backtest.render,
-    "detail": detail.render,
-    "portfolio": portfolio.render,
-    "risk": risk.render,
-    "about": about.render,
-}
-
 # Callback pengaturan khusus per halaman -- HANYA halaman yg didaftarkan di
-# sini yg dapat kontrol tambahan di panel kanan (lihat ui_layout.render_right_settings).
+# sini yg dapat kontrol tambahan di panel Pengaturan (lihat
+# ui_layout.render_settings_content). Key HARUS sama persis dgn title
+# st.Page() masing-masing di _build_pages().
 PAGE_SPECIFIC_SETTINGS = {
-    "screener": screener.render_page_settings,
+    "Screener": screener.render_page_settings,
 }
 
 
@@ -75,10 +75,57 @@ def _get_client():
     return get_client(use_service_role=False)
 
 
+def _current_ctx() -> AppContext:
+    """Dipanggil dari dalam tiap page_xxx() -- st.Page() memanggil fungsi
+    halamannya TANPA argumen, jadi ctx dibangun ulang di sini dari
+    st.session_state (diisi main() sebelum st.navigation() dipanggil,
+    lihat bawah)."""
+    return AppContext(
+        client=st.session_state["_iqs_client"],
+        settings=st.session_state.get("_iqs_settings", {}),
+    )
+
+
+def page_screener() -> None:
+    screener.render(_current_ctx())
+
+
+def page_backtest() -> None:
+    backtest.render(_current_ctx())
+
+
+def page_detail() -> None:
+    detail.render(_current_ctx())
+
+
+def page_portfolio() -> None:
+    portfolio.render(_current_ctx())
+
+
+def page_risk() -> None:
+    risk.render(_current_ctx())
+
+
+def page_about() -> None:
+    about.render(_current_ctx())
+
+
+def _build_pages() -> list[st.Page]:
+    """Daftar halaman utk st.navigation() -- title di sini JUGA jadi key di
+    PAGE_SPECIFIC_SETTINGS di atas. Urutan = urutan tab yg tampil."""
+    return [
+        st.Page(page_screener, title="Screener", icon=":material/search:", default=True, url_path="screener"),
+        st.Page(page_backtest, title="Backtest Lab", icon=":material/science:", url_path="backtest"),
+        st.Page(page_detail, title="Detail Saham", icon=":material/query_stats:", url_path="detail"),
+        st.Page(page_portfolio, title="Portfolio", icon=":material/pie_chart:", url_path="portfolio"),
+        st.Page(page_risk, title="Risk Calculator", icon=":material/calculate:", url_path="risk"),
+        st.Page(page_about, title="Tentang", icon=":material/info:", url_path="about"),
+    ]
+
+
 def main() -> None:
-    ui_layout.init_layout_state()
     ui_layout.inject_css()
-    ui_layout.render_topbar()
+    ui_layout.render_brand_header()
 
     try:
         client = _get_client()
@@ -93,31 +140,22 @@ def main() -> None:
         st.stop()
         return
 
+    st.session_state["_iqs_client"] = client
+
+    pg = st.navigation(_build_pages(), position="top")
+
     last_update = data_loaders.load_last_update(client)
+    page_cb = PAGE_SPECIFIC_SETTINGS.get(pg.title)
 
-    col_nav, col_main, col_settings = ui_layout.get_layout_columns()
+    _u1, _u2 = st.columns([6, 1])
+    with _u1:
+        pass  # ruang kosong kiri -- tombol Pengaturan sengaja rata kanan (lihat _u2)
+    with _u2:
+        with st.popover("Pengaturan", icon=":material/tune:", width="stretch"):
+            settings = ui_layout.render_settings_content(last_update, page_cb)
+    st.session_state["_iqs_settings"] = settings
 
-    settings: dict = {}
-    if col_settings is not None:
-        with col_settings:
-            page_cb = PAGE_SPECIFIC_SETTINGS.get(st.session_state.current_page)
-            settings = ui_layout.render_right_settings(last_update, page_cb)
-
-    if col_nav is not None:
-        with col_nav:
-            ui_layout.render_left_nav()
-
-    ctx = AppContext(client=client, settings=settings)
-
-    with col_main:
-        st.caption(
-            "Multi-confirmation trend signal system • Universe: IDX30 & LQ45 • "
-            "Data bersama via Supabase • Sumber harga: yfinance"
-        )
-        current_page = st.session_state.current_page
-        if current_page not in ui_layout.VALID_PAGES:
-            current_page = st.session_state.current_page = "screener"
-        ROUTES[current_page](ctx)
+    pg.run()
 
 
 if __name__ == "__main__":

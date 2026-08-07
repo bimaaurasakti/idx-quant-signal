@@ -1,11 +1,20 @@
 """
 views/risk.py
 =============
-Isi tab "Risk Calculator" dari app.py versi lama, dipindah apa adanya.
-Tidak butuh client Supabase -- murni kalkulator lokal.
+Isi tab "Risk Calculator" -- FASE 7 REDESIGN (lihat
+IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §9.6). Tidak butuh client
+Supabase -- murni kalkulator lokal, logika perhitungan 100% tidak berubah.
+
+Perubahan HANYA presentasi: 6x st.metric -> components.render_metric_card
+dgn tone warna (R:R ratio hijau kalau >= 1:1.5, TP hijau/SL merah -- pola
+sama seperti kartu Ongoing Position di Screener, lihat components.
+render_position_card), format Rupiah gaya Indonesia (theme.format_idr).
 """
 from __future__ import annotations
 import streamlit as st
+
+import components
+from theme import format_idr
 
 
 def render(ctx) -> None:
@@ -36,14 +45,23 @@ def render(ctx) -> None:
 
     st.markdown("### Hasil Perhitungan")
     r1, r2, r3 = st.columns(3)
-    r1.metric("Jumlah Saham (dibulatkan ke lot)", f"{shares:,}")
-    r2.metric("Nilai Posisi", f"Rp {position_value:,.0f}")
-    r3.metric("Risk : Reward Ratio", f"1 : {reward_risk_ratio:.2f}")
+    with r1:
+        components.render_metric_card("Jumlah Saham (dibulatkan ke lot)", f"{shares:,}", tone="neutral")
+    with r2:
+        components.render_metric_card("Nilai Posisi", format_idr(position_value), tone="neutral")
+    with r3:
+        components.render_metric_card(
+            "Risk : Reward Ratio", f"1 : {reward_risk_ratio:.2f}",
+            tone="bullish" if reward_risk_ratio >= 1.5 else "bearish",
+        )
 
     r4, r5, r6 = st.columns(3)
-    r4.metric("Stop Loss", f"Rp {sl_price:,.0f}")
-    r5.metric("Take Profit", f"Rp {tp_price:,.0f}")
-    r6.metric("Max Risiko (Rp)", f"Rp {risk_rupiah:,.0f}")
+    with r4:
+        components.render_metric_card("Stop Loss", format_idr(sl_price), tone="bearish")
+    with r5:
+        components.render_metric_card("Take Profit", format_idr(tp_price), tone="bullish")
+    with r6:
+        components.render_metric_card("Max Risiko (Rp)", format_idr(risk_rupiah), tone="neutral")
 
     if position_value > capital:
         st.error(

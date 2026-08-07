@@ -2,19 +2,26 @@
 views/backtest.py
 ==================
 Halaman Backtest Lab -- eksplorasi kombinasi indikator custom (lihat
-IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md §3.6 utk spesifikasi alur UI).
+IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md §3.6 utk spesifikasi alur UI dasar,
+dan IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §9.4 utk redesign Fase 5).
 
 READ-ONLY & EPHEMERAL: halaman ini TIDAK PERNAH menulis ke Supabase dan
-TIDAK terkait ongoing_positions/position_manager.py sama sekali (§1.6/§3
-rencana implementasi). Data OHLCV dibaca dari price_history (Supabase,
-sudah bersumber yfinance lewat worker) -- BUKAN memanggil yfinance
-langsung (§1.1).
+TIDAK terkait ongoing_positions/position_manager.py sama sekali. Data OHLCV
+dibaca dari price_history (Supabase, sudah bersumber yfinance lewat
+worker) -- BUKAN memanggil yfinance langsung.
+
+FASE 5: perubahan HANYA presentasi (badge jumlah terpilih di expander
+indikator, metric card berwarna, Meteran Konfirmasi utk trade BUY
+terbaru). Chart (statis & animasi replay) TIDAK diedit di sini -- sudah
+otomatis ke-theme sejak Fase 2 lewat chart_builder.py.
 """
 from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
 import data_loaders
+import components
+from theme import COLORS
 from backtester import backtest_signals
 from custom_backtest import generate_custom_signals, validate_min_bars, compute_equity_curve
 from indicator_registry import INDICATOR_SPECS, CATEGORIES, MAX_INDICATORS_SELECTED, list_by_category
@@ -48,6 +55,28 @@ def _drop_warmup_nan(d: pd.DataFrame, selected: list[str]) -> pd.DataFrame:
     return d.iloc[warm_up_end:] if warm_up_end < len(d) else d
 
 
+def _last_trade_confirmation(d_clean: pd.DataFrame, trades: list[dict], total: int) -> tuple[int, int] | None:
+    """Meteran Konfirmasi utk trade BUY PALING BARU. filled = BullishCount
+    pada bar SINYAL (1 bar sebelum entry_date -- lihat backtester.py:
+    entry_idx = i+1 dari bar sinyal ke-i). SEMUA trade di Backtest Lab
+    selalu trade BUY (backtester.py cuma membuka posisi dari signals==1,
+    long-only, lihat docstring position_manager.py) jadi arahnya selalu
+    bullish -- tidak perlu cek arah. Return None (bukan raise) kalau bar
+    sinyal sudah terbuang oleh _drop_warmup_nan di atas atau di luar
+    jangkauan d_clean -- pemanggil WAJIB skip elemen ini dgn aman."""
+    if not trades:
+        return None
+    entry_date = pd.Timestamp(trades[-1]["entry_date"])
+    if entry_date not in d_clean.index:
+        return None
+    entry_loc = d_clean.index.get_loc(entry_date)
+    signal_loc = entry_loc - 1
+    if signal_loc < 0 or "BullishCount" not in d_clean.columns:
+        return None
+    filled = int(d_clean["BullishCount"].iloc[signal_loc])
+    return filled, total
+
+
 def render(ctx) -> None:
     client = ctx.client
     st.markdown("## 🧪 Backtest Lab")
@@ -74,7 +103,13 @@ def render(ctx) -> None:
     st.markdown("#### 1️⃣ Pilih Indikator")
     selected: list[str] = []
     for cat in CATEGORIES:
-        with st.expander(f"📂 {cat}", expanded=(cat == "Trend")):
+        # Badge jumlah terpilih di judul expander -- dibaca dari session_state
+        # widget SEBELUM widget itu sendiri dibuat ulang di run ini (nilai
+        # dari run sebelumnya tetap ada di session_state), supaya user tidak
+        # perlu buka tiap expander cuma utk tahu apa yg sudah dipilih.
+        n_prev = len(st.session_state.get(f"bt_pick_{cat}", []))
+        label = f"📂 {cat}" + (f" · {n_prev} dipilih" if n_prev else "")
+        with st.expander(label, expanded=(cat == "Trend")):
             options = list_by_category(cat)
             picked = st.multiselect(
                 f"Indikator {cat}",
@@ -159,7 +194,7 @@ def render(ctx) -> None:
             max_hold = st.slider("Maks Hari Holding", 5, 60, 20, step=5)
 
         submitted = st.form_submit_button(
-            "🚀 Jalankan Backtest", type="primary", use_container_width=True, disabled=not selected,
+            "🚀 Jalankan Backtest", type="primary", width="stretch", disabled=not selected,
         )
 
     if submitted and selected:
@@ -218,14 +253,43 @@ def _render_result(payload: dict) -> None:
         )
         return
 
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
-    m1.metric("Jml Trade", result["n_trades"])
-    m2.metric("Winrate", f"{result['winrate']:.1f}%")
-    m3.metric("Expectancy", f"{result['expectancy_pct']:.2f}%")
     pf = result["profit_factor"]
-    m4.metric("Profit Factor", f"{pf:.2f}" if pf is not None else "∞")
-    m5.metric("Max Drawdown", f"{result['max_drawdown_pct']:.2f}%")
-    m6.metric("Sharpe (kasar)", f"{result['sharpe_rough']:.2f}")
+    winrate = result["winrate"]
+    expectancy = result["expectancy_pct"]
+
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    with m1:
+        components.render_metric_card("Jml Trade", str(result["n_trades"]), tone="neutral")
+    with m2:
+        components.render_metric_card(
+            "Winrate", f"{winrate:.1f}%", tone="bullish" if winrate > 50 else "neutral",
+        )
+    with m3:
+        components.render_metric_card(
+            "Expectancy", f"{expectancy:.2f}%", tone="bullish" if expectancy > 0 else "bearish",
+        )
+    with m4:
+        components.render_metric_card(
+            "Profit Factor", f"{pf:.2f}" if pf is not None else "∞",
+            tone="bullish" if (pf is None or pf > 1) else "bearish",
+        )
+    with m5:
+        components.render_metric_card(
+            "Max Drawdown", f"{result['max_drawdown_pct']:.2f}%", tone="bearish",
+        )
+    with m6:
+        components.render_metric_card("Sharpe (kasar)", f"{result['sharpe_rough']:.2f}", tone="neutral")
+
+    meter_info = _last_trade_confirmation(d_clean, trades, len(selected))
+    if meter_info:
+        filled, total = meter_info
+        st.markdown(
+            f'<div style="margin:10px 0 4px;font-size:12.5px;color:{COLORS["text_secondary"]};">'
+            f"Konfirmasi trade BUY terakhir: "
+            f'{components.confirmation_meter_html(filled, total, "bullish")} '
+            f'<span class="iqs-mono">{filled}/{total} indikator sepakat</span></div>',
+            unsafe_allow_html=True,
+        )
 
     st.warning(
         "⚠️ **Backtest ini bersifat in-sample** (diuji pada data historis yang sama dipakai "
@@ -240,7 +304,7 @@ def _render_result(payload: dict) -> None:
     with tab_chart:
         from chart_builder import build_chart_figure
         fig_static = build_chart_figure(d_clean, selected, trades)
-        st.plotly_chart(fig_static, use_container_width=True)
+        st.plotly_chart(fig_static, width="stretch")
 
         from chart_animation import estimate_frame_count
         est_frames = estimate_frame_count(len(d_clean))
@@ -249,7 +313,7 @@ def _render_result(payload: dict) -> None:
                 with st.spinner(f"Membangun {est_frames} frame animasi..."):
                     from chart_animation import build_animated_backtest_chart
                     fig_anim = build_animated_backtest_chart(d_clean, selected, trades)
-                st.plotly_chart(fig_anim, use_container_width=True)
+                st.plotly_chart(fig_anim, width="stretch")
                 st.caption(
                     "Klik ▶️ Play pada chart di atas untuk memutar replay, atau geser slider "
                     "untuk melompat ke tanggal tertentu secara manual."
@@ -266,7 +330,8 @@ def _render_result(payload: dict) -> None:
         })
         cols = ["Tanggal Entry", "Tanggal Exit", "Harga Entry", "Harga Exit",
                 "Alasan Exit", "Return (%)", "Lama Hold (hari)"]
-        st.dataframe(disp[cols], use_container_width=True, hide_index=True)
+        from shared_ui import style_exit_reason_row
+        st.dataframe(disp[cols].style.apply(style_exit_reason_row, axis=1), width="stretch", hide_index=True)
         csv = disp[cols].to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download riwayat trade sebagai CSV", csv,
                             f"backtest_{payload['ticker']}.csv", "text/csv")
@@ -275,12 +340,15 @@ def _render_result(payload: dict) -> None:
         equity = compute_equity_curve(trades)
         if not equity.empty:
             import plotly.express as px
+            from theme import apply_chart_theme
             fig_eq = px.line(
                 x=list(range(1, len(equity) + 1)), y=(equity - 1) * 100,
                 labels={"x": "Trade ke-", "y": "Return Kumulatif (%, compounding)"},
                 title="Equity Curve (Compounding per Trade)",
             )
-            st.plotly_chart(fig_eq, use_container_width=True)
+            fig_eq.update_traces(line_color=COLORS["brand"])
+            apply_chart_theme(fig_eq)
+            st.plotly_chart(fig_eq, width="stretch")
             st.caption(
                 "Beda dengan 'Total Return (Sum)' di halaman lain (non-kompound): equity curve "
                 "ini MENGKOMPOUND tiap trade berurutan, asumsi seluruh modal dipakai ulang tiap trade."

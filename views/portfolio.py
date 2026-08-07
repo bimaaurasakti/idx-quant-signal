@@ -1,7 +1,12 @@
 """
 views/portfolio.py
 ===================
-Isi tab "Portfolio" dari app.py versi lama, dipindah apa adanya.
+Isi tab "Portfolio" -- FASE 6 REDESIGN (lihat
+IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §9.5). Chart theming (Fase 2)
+& warna tabel (Fase 1, shared_ui.py) sudah diterapkan sebelumnya -- Fase 6
+HANYA mengganti 6x st.metric jadi components.render_metric_card (tone
+warna dinamis) + modernisasi width="stretch". Filter (sektor/tanggal/
+ticker) & expander ringkasan AI TIDAK diubah -- sudah pola yang tepat.
 """
 from __future__ import annotations
 import pandas as pd
@@ -9,8 +14,10 @@ import plotly.express as px
 import streamlit as st
 
 import data_loaders
+import components
 from shared_ui import TOOLTIP, EXIT_REASON_CHART_COLORS, style_exit_reason_row
 from tickers_idx import get_sector_of
+from theme import apply_chart_theme, COLORS
 
 
 def _prepare_portfolio_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -115,15 +122,23 @@ def render(ctx) -> None:
             "Hati-hati menarik kesimpulan statistik dari jumlah trade sekecil ini."
         )
 
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
-    m1.metric("Total Closed", f"{metrics['n_closed']}")
-    m2.metric("Winrate", f"{metrics['winrate']:.1f}%", help=TOOLTIP["winrate"])
-    m3.metric("Expectancy", f"{metrics['expectancy']:.2f}%", help=TOOLTIP["expectancy"])
     pf = metrics["profit_factor"]
     pf_disp = f"{pf:.2f}" if pf is not None else "∞"
-    m4.metric("Profit Factor", pf_disp, help=TOOLTIP["profit_factor"])
-    m5.metric("Total Return (Sum)", f"{metrics['total_return']:.2f}%", help=TOOLTIP["total_return"])
-    m6.metric("Avg Hold", f"{metrics['avg_hold_days']:.1f} hari")
+    winrate, expectancy, total_return = metrics["winrate"], metrics["expectancy"], metrics["total_return"]
+
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    with m1:
+        components.render_metric_card("Total Closed", f"{metrics['n_closed']}", tone="neutral")
+    with m2:
+        components.render_metric_card("Winrate", f"{winrate:.1f}%", tone="bullish" if winrate > 50 else "neutral", help_text=TOOLTIP["winrate"])
+    with m3:
+        components.render_metric_card("Expectancy", f"{expectancy:.2f}%", tone="bullish" if expectancy > 0 else "bearish", help_text=TOOLTIP["expectancy"])
+    with m4:
+        components.render_metric_card("Profit Factor", pf_disp, tone="bullish" if (pf is None or pf > 1) else "bearish", help_text=TOOLTIP["profit_factor"])
+    with m5:
+        components.render_metric_card("Total Return (Sum)", f"{total_return:.2f}%", tone="bullish" if total_return > 0 else "bearish", help_text=TOOLTIP["total_return"])
+    with m6:
+        components.render_metric_card("Avg Hold", f"{metrics['avg_hold_days']:.1f} hari", tone="neutral")
     if pf is None:
         st.caption("∞ = belum ada trade rugi sama sekali dalam sample/filter saat ini.")
 
@@ -139,7 +154,8 @@ def render(ctx) -> None:
             text="Jumlah", title="Breakdown Alasan Exit",
         )
         fig_exit.update_layout(showlegend=False)
-        st.plotly_chart(fig_exit, use_container_width=True)
+        apply_chart_theme(fig_exit)
+        st.plotly_chart(fig_exit, width="stretch")
     with cc2:
         sektor_stats = (
             f.groupby("sektor")
@@ -148,10 +164,11 @@ def render(ctx) -> None:
         )
         fig_sektor = px.bar(
             sektor_stats, x="sektor", y="AvgReturn", color="AvgReturn",
-            color_continuous_scale=["red", "lightgray", "green"],
+            color_continuous_scale=[COLORS["bearish"], COLORS["border_strong"], COLORS["bullish"]],
             title="Rata-rata Return per Sektor (%)",
         )
-        st.plotly_chart(fig_sektor, use_container_width=True)
+        apply_chart_theme(fig_sektor)
+        st.plotly_chart(fig_sektor, width="stretch")
 
     timeline = f.sort_values("exit_date").copy()
     timeline["cum_return"] = timeline["return_pct"].cumsum()
@@ -159,7 +176,9 @@ def render(ctx) -> None:
         timeline, x="exit_date", y="cum_return", markers=True,
         title="Return Kumulatif dari Waktu ke Waktu (Non-Kompound, Sum)",
     )
-    st.plotly_chart(fig_cum, use_container_width=True)
+    fig_cum.update_traces(line_color=COLORS["brand"], marker_color=COLORS["brand"])
+    apply_chart_theme(fig_cum)
+    st.plotly_chart(fig_cum, width="stretch")
     st.caption(
         "Grafik ini adalah **penjumlahan** (bukan compounding) return_pct tiap trade "
         "closed, asumsi ukuran posisi sama rata — bukan equity curve portfolio riil."
@@ -185,7 +204,7 @@ def render(ctx) -> None:
                 "Harga Entry": "{:,.0f}", "Harga Exit": "{:,.0f}",
                 "Return (%)": "{:+.2f}%",
             }, na_rep="-"),
-        use_container_width=True, hide_index=True, height=400,
+        width="stretch", hide_index=True, height=400,
     )
 
     csv = disp[cols_show].to_csv(index=False).encode("utf-8")

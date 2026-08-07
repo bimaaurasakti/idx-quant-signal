@@ -27,6 +27,7 @@ from plotly.subplots import make_subplots
 
 from indicator_registry import INDICATOR_SPECS
 from shared_ui import EXIT_REASON_CHART_COLORS
+from theme import apply_chart_theme, CANDLESTICK_COLORS, COLORS
 
 _EXIT_REASON_LABEL = {
     "TP": "Take Profit", "SL": "Stop Loss",
@@ -86,6 +87,7 @@ def build_chart_figure(
     # --- Row 1: candlestick + overlay indikator ---
     fig.add_trace(go.Candlestick(
         x=df.index, open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"], name="Harga",
+        **CANDLESTICK_COLORS,
     ), row=1, col=1)
     for label, cols in overlay_groups:
         for c in cols:
@@ -106,7 +108,7 @@ def build_chart_figure(
     entry_y = [t["entry_price"] for t in relevant]
     fig.add_trace(go.Scatter(
         x=entry_x, y=entry_y, mode="markers", name="Entry",
-        marker=dict(symbol="triangle-up", size=11, color="#22c55e", line=dict(width=1, color="white")),
+        marker=dict(symbol="triangle-up", size=11, color=COLORS["bullish"], line=dict(width=1, color="white")),
     ), row=1, col=1)
 
     exited = [t for t in relevant if pd.Timestamp(t["exit_date"]) <= window_end]
@@ -128,9 +130,15 @@ def build_chart_figure(
                 x=df.index, y=df[c], name=f"{label} ({suffix})", line=dict(width=1), mode="lines",
             ), row=row_i, col=1)
 
-    # --- Volume (row terakhir, selalu ada) ---
+    # --- Volume (row terakhir, selalu ada) -- diwarnai per-bar sesuai arah
+    # candle (naik/turun) supaya konsisten dgn konvensi warna sinyal app ini,
+    # bukan satu warna flat spt sebelumnya (lihat IMPLEMENTATION_PLAN §8.1). ---
+    vol_colors = [
+        "rgba(34,197,94,0.45)" if c >= o else "rgba(239,68,68,0.45)"
+        for o, c in zip(df["Open"], df["Close"])
+    ]
     fig.add_trace(go.Bar(
-        x=df.index, y=df["Volume"], name="Volume", marker_color="rgba(100,120,200,0.45)",
+        x=df.index, y=df["Volume"], name="Volume", marker_color=vol_colors,
     ), row=n_rows, col=1)
 
     fig.update_layout(
@@ -140,4 +148,4 @@ def build_chart_figure(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=10, r=10, t=40, b=10),
     )
-    return fig
+    return apply_chart_theme(fig)
