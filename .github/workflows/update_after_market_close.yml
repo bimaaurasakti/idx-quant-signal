@@ -1,17 +1,20 @@
-name: Update Sinyal IDX Setelah Tutup Bursa
+name: Update Sinyal IDX Sebelum Buka & Setelah Tutup Bursa
 
 on:
   schedule:
-    # Contoh: Ubah dari 05:30 ke 05:37 UTC (12:37 WIB)
+    # Penarikan data sebelum jam buka bursa (08:35 WIB / 01:35 UTC)
+    - cron: "35 1 * * 1-5"
+
+    # Penarikan setelah Sesi 1 tutup (12:37 WIB / 05:37 UTC, Senin-Kamis)
     - cron: "37 5 * * 1-4"
 
-    # Contoh: Ubah dari 05:00 ke 05:08 UTC (12:08 WIB)
+    # Penarikan setelah Sesi 1 tutup (12:08 WIB / 05:08 UTC, Jumat)
     - cron: "8 5 * * 5"
 
-    # Contoh: Ubah dari 09:30 ke 09:34 UTC (16:34 WIB)
+    # Penarikan setelah Sesi 2 / Pasar tutup (16:34 WIB / 09:34 UTC, Senin-Jumat)
     - cron: "34 9 * * 1-5"
 
-  workflow_dispatch: {}   # Bisa dipicu manual dari tab "Actions" di GitHub
+  workflow_dispatch: {}   # Picu manual dari tab "Actions" di GitHub
 
 jobs:
   update-signals:
