@@ -1,6 +1,9 @@
-streamlit>=1.48.0  # naik dari 1.35.0: butuh st.navigation(position=...), st.popover, native font loading di config.toml -- teruji jalan baik di 1.60.0 (lihat IMPLEMENTATION_PLAN_UI_REDESIGN_STOCKBIT.md §4.5)
 yfinance>=0.2.40
 pandas>=2.0.0
 numpy>=1.24.0
-plotly>=5.20.0
 supabase>=2.4.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic-settings>=2.6.0
+cachetools>=5.5.0
+slowapi>=0.1.9
