@@ -13,8 +13,10 @@ export default function AboutPage() {
         <CardContent className={SECTION_CLASS}>
           <h3 className={H3_CLASS}>Arsitektur — kenapa &ldquo;1 sumber data yang sama&rdquo;?</h3>
           <p>
-            Dashboard ini tidak melakukan fetch yfinance sendiri tiap kali dibuka, dan sejak migrasi ini
-            frontend juga tidak pernah bicara langsung ke database. Alurnya:
+            Dashboard ini tidak melakukan fetch yfinance sendiri tiap kali dibuka. Frontend
+            membaca data <strong className="text-text-primary">langsung dari Supabase</strong>{" "}
+            lewat <code>@supabase/supabase-js</code> (anon key, dibatasi Row Level Security yang
+            cuma mengizinkan baca) — tanpa backend API terpisah di tengah. Alurnya:
           </p>
           <pre className="overflow-x-auto rounded-md border border-border bg-surface-2 p-3 font-mono text-[11.5px] leading-6 text-text-secondary">
 {`GitHub Actions (cron, ~16:30 WIB tiap hari bursa)
@@ -22,24 +24,23 @@ export default function AboutPage() {
         v
 worker_fetch_and_update.py  ->  fetch yfinance, hitung sinyal + backtest
         |
-        v
-   Supabase (database bersama)
+        v   (tulis via service_role key, bypass RLS)
+   Supabase (Postgres + PostgREST, RLS baca-publik)
         |
-        v
-FastAPI backend  ->  SATU-SATUNYA klien Supabase, tidak pernah dihitung ulang
-        |
-        v
-Next.js frontend (dashboard ini)  ->  HANYA memanggil FastAPI lewat REST/JSON`}
+        v   (baca via anon key, langsung dari browser)
+Next.js frontend (dashboard ini)  ->  @supabase/supabase-js langsung`}
           </pre>
           <p>
-            Semua pengunjung — siapa pun, kapan pun — melihat angka yang persis sama. Ini juga menghindari
-            setiap pengunjung memicu rate limit Yahoo Finance sendiri-sendiri.
+            Semua pengunjung — siapa pun, kapan pun — melihat angka yang persis sama, karena
+            semua membaca dari tabel yang sama pula. Ini juga menghindari setiap pengunjung
+            memicu rate limit Yahoo Finance sendiri-sendiri.
           </p>
           <p>
-            <strong className="text-text-primary">🧪 Backtest Lab</strong> bekerja dengan prinsip yang
-            sama: FastAPI membaca harga OHLCV historis dari Supabase, lalu menghitung ULANG indikator &amp;
-            sinyal sesuai pilihan Anda — tanpa memanggil yfinance langsung dan tanpa menulis apa pun ke
-            database bersama.
+            <strong className="text-text-primary">🧪 Backtest Lab</strong> sedang dalam
+            pengembangan ulang. Sebelumnya dihitung oleh backend terpisah; sekarang sedang
+            dipindahkan supaya bisa jalan langsung dari data harga historis di Supabase tanpa
+            backend tambahan. Sementara proses ini berlangsung, halamannya nonaktif — bagian lain
+            dashboard tidak terpengaruh sama sekali.
           </p>
         </CardContent>
       </Card>
