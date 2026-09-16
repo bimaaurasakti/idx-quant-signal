@@ -1,17 +1,14 @@
-name: Update Sinyal IDX Sebelum Buka & Setelah Tutup Bursa
+name: Update Sinyal IDX (Mid-Day Monitor & EOD Master)
 
 on:
   schedule:
-    # Penarikan data sebelum jam buka bursa (08:35 WIB / 01:35 UTC)
-    - cron: "35 1 * * 1-5"
-
-    # Penarikan setelah Sesi 1 tutup (12:37 WIB / 05:37 UTC, Senin-Kamis)
+    # Penarikan setelah Sesi 1 tutup (12:37 WIB / 05:37 UTC, Senin-Kamis) - Monitor Only
     - cron: "37 5 * * 1-4"
 
-    # Penarikan setelah Sesi 1 tutup (12:08 WIB / 05:08 UTC, Jumat)
+    # Penarikan setelah Sesi 1 tutup (12:08 WIB / 05:08 UTC, Jumat) - Monitor Only
     - cron: "8 5 * * 5"
 
-    # Penarikan setelah Sesi 2 / Pasar tutup (16:34 WIB / 09:34 UTC, Senin-Jumat)
+    # Penarikan setelah Sesi 2 / Pasar tutup (16:34 WIB / 09:34 UTC, Senin-Jumat) - Master EOD
     - cron: "34 9 * * 1-5"
 
   workflow_dispatch: {}   # Picu manual dari tab "Actions" di GitHub
@@ -36,4 +33,12 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python worker_fetch_and_update.py
+        run: |
+          HOUR_UTC=$(date -u +%H)
+          if [ "$HOUR_UTC" = "05" ]; then
+            echo "[RUNNER] Sesi Siang terdeteksi ($HOUR_UTC UTC) -> Menjalankan mode --monitor-only..."
+            python worker_fetch_and_update.py --monitor-only
+          else
+            echo "[RUNNER] EOD / Manual terdeteksi ($HOUR_UTC UTC) -> Menjalankan Master Update..."
+            python worker_fetch_and_update.py
+          fi

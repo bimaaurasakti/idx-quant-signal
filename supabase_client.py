@@ -283,6 +283,17 @@ def _coerce_numeric(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     return df
 
 
+def fetch_all_active_positions(client) -> list[dict]:
+    """Mengembalikan semua baris ongoing_positions yang berstatus PENDING_ENTRY atau OPEN."""
+    resp = (
+        client.table("ongoing_positions")
+        .select("*")
+        .in_("status", ["PENDING_ENTRY", "OPEN"])
+        .execute()
+    )
+    return resp.data or []
+
+
 def fetch_active_position_tickers(client) -> list[str]:
     """Ticker (TANPA suffix .JK) yang sedang berstatus PENDING_ENTRY atau
     OPEN. Dipakai worker_fetch_and_update.py untuk 'grandfathering': ticker

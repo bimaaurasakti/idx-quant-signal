@@ -24,9 +24,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-R_MULTIPLE_TP = 2.0      # take profit = 2x ATR (risk:reward 1:2)
-SL_ATR_MULT = 1.0        # stop loss = 1x ATR
-MAX_HOLD_DAYS = 20       # keluar paksa kalau belum kena TP/SL dalam 20 hari
+R_MULTIPLE_TP = 2.0      # take profit tier 1 = 2x ATR (amankan 50% porsi)
+SL_ATR_MULT = 1.5        # initial stop loss = 1.5x ATR (hindari 1-2 day noise stop-out)
+MAX_HOLD_DAYS = 30       # batas waktu holding maksimal
 
 
 def backtest_signals(
@@ -36,14 +36,13 @@ def backtest_signals(
     max_hold_days: int = MAX_HOLD_DAYS,
 ) -> dict:
     """
-    Input: DataFrame hasil generate_signals() (punya kolom Signal, ATR14, Close, High, Low).
+    Input: DataFrame hasil generate_signals() (punya kolom Signal, ATR14, Close, High, Low, SMA20).
     Output: dict metrik + list trade detail.
 
-    r_multiple_tp/sl_atr_mult/max_hold_days: opsional, default = konstanta
-    modul di atas (perilaku 100% identik dgn versi lama kalau tidak diisi).
-    Dibuat configurable utk Backtest Lab (lihat IMPLEMENTATION_PLAN_UI_BACKTEST_LAB.md
-    §3.5) -- worker_fetch_and_update.py yg manggil backtest_signals(d) TANPA
-    argumen tambahan tetap dapat hasil identik lewat default ini.
+    Menggunakan Hybrid 2-Tier Exit System:
+      - Tier 1: Kena TP1 (+2.0 ATR) -> Amankan 50% profit, geser SL sisa posisi ke Break-Even (Entry Price).
+      - Tier 2: Sisa 50% posisi (Runner) trailing bebas tren hingga Close < SMA20 (menangkap fat-tail mega-trend).
+      - Pre-TP1 SL: Jika harga turun kena Entry - 1.5 ATR sebelum TP1, keluar 100% posisi (Stop Loss proteksi modal).
     """
     if d is None or len(d) < 60:
         return _empty_result()
@@ -56,6 +55,7 @@ def backtest_signals(
     lows = d["Low"].values
     atrs = d["ATR14"].values
     signals = d["Signal"].values
+    sma20s = d["SMA20"].values if "SMA20" in d.columns else pd.Series(closes).rolling(20, min_periods=20).mean().values
     dates = d.index
 
     i = 0
@@ -64,45 +64,87 @@ def backtest_signals(
             entry_idx = i + 1  # entry di hari berikutnya
             if entry_idx >= n:
                 break
-            # Entry di harga OPEN hari berikutnya (bukan Close) — ini realistis
-            # karena sinyal baru diketahui SETELAH tutup pasar hari sinyal muncul,
-            # jadi eksekusi paling awal yang mungkin adalah open sesi besoknya.
-            # Metodologi ini disamakan dengan position_manager.py supaya angka
-            # backtest merepresentasikan posisi live dengan akurat.
             entry_price = opens[entry_idx]
             atr_at_entry = atrs[i]
-            tp_price = entry_price + r_multiple_tp * atr_at_entry
+            tp1_price = entry_price + r_multiple_tp * atr_at_entry
             sl_price = entry_price - sl_atr_mult * atr_at_entry
 
             exit_price = None
             exit_reason = None
             exit_idx = None
+            ret_pct = 0.0
+
+            tp1_hit = False
+            half1_ret = 0.0
+            current_sl = sl_price
 
             for j in range(entry_idx + 1, min(entry_idx + 1 + max_hold_days, n)):
-                if lows[j] <= sl_price:
-                    exit_price = sl_price
-                    exit_reason = "SL"
-                    exit_idx = j
-                    break
-                if highs[j] >= tp_price:
-                    exit_price = tp_price
-                    exit_reason = "TP"
-                    exit_idx = j
-                    break
-                if signals[j] == -1:
-                    exit_price = closes[j]
-                    exit_reason = "SELL_SIGNAL"
-                    exit_idx = j
-                    break
+                if not tp1_hit:
+                    # Belum kena TP1: Cek Stop Loss awal atau Take Profit 1
+                    if lows[j] <= current_sl:
+                        exit_price = current_sl
+                        exit_reason = "SL"
+                        exit_idx = j
+                        ret_pct = (exit_price - entry_price) / entry_price * 100
+                        break
+                    elif highs[j] >= tp1_price:
+                        # TP1 Tercapai! Kunci 50% porsi
+                        tp1_hit = True
+                        half1_ret = (tp1_price - entry_price) / entry_price * 100 * 0.5
+                        # Geser SL sisa runner ke Break-Even
+                        current_sl = entry_price
+                        if lows[j] <= current_sl:
+                            # Reversal ekstrim di hari yang sama
+                            exit_price = current_sl
+                            exit_reason = "TP1_BE"
+                            exit_idx = j
+                            ret_pct = half1_ret
+                            break
+                        continue
+                    elif signals[j] == -1:
+                        exit_price = closes[j]
+                        exit_reason = "SELL_SIGNAL"
+                        exit_idx = j
+                        ret_pct = (exit_price - entry_price) / entry_price * 100
+                        break
+                else:
+                    # Sudah kena TP1: Sisa 50% posisi berstatus Runner
+                    if lows[j] <= current_sl:
+                        # Kena Break-Even (Worst-case setelah TP1)
+                        exit_price = current_sl
+                        exit_reason = "TP1_BE"
+                        exit_idx = j
+                        ret_pct = half1_ret  # sisa 50% keluar di 0% (BE)
+                        break
+                    elif not np.isnan(sma20s[j]) and closes[j] < sma20s[j]:
+                        # Runner exit saat daily Close tembus ke bawah SMA20
+                        exit_price = closes[j]
+                        exit_reason = "TP1_RUNNER"
+                        exit_idx = j
+                        half2_ret = (exit_price - entry_price) / entry_price * 100 * 0.5
+                        ret_pct = half1_ret + half2_ret
+                        break
+                    elif signals[j] == -1:
+                        exit_price = closes[j]
+                        exit_reason = "TP1_SIGNAL"
+                        exit_idx = j
+                        half2_ret = (exit_price - entry_price) / entry_price * 100 * 0.5
+                        ret_pct = half1_ret + half2_ret
+                        break
 
             if exit_price is None:
-                # max holding period tercapai, exit di close terakhir yang tersedia
+                # Max holding period tercapai
                 last_j = min(entry_idx + max_hold_days, n - 1)
                 exit_price = closes[last_j]
-                exit_reason = "TIME_EXIT"
                 exit_idx = last_j
+                if tp1_hit:
+                    half2_ret = (exit_price - entry_price) / entry_price * 100 * 0.5
+                    ret_pct = half1_ret + half2_ret
+                    exit_reason = "TP1_TIME"
+                else:
+                    ret_pct = (exit_price - entry_price) / entry_price * 100
+                    exit_reason = "TIME_EXIT"
 
-            ret_pct = (exit_price - entry_price) / entry_price * 100
             trades.append({
                 "entry_date": dates[entry_idx],
                 "exit_date": dates[exit_idx],
