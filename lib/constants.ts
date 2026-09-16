@@ -11,7 +11,16 @@
 
 export type SignalType = string | null | undefined;
 export type SignalDirection = "bullish" | "bearish" | "neutral";
-export type ExitReason = "TP" | "SL" | "SELL_SIGNAL" | "TIME_EXIT";
+export type ExitReason =
+  | "TP"
+  | "SL"
+  | "SELL_SIGNAL"
+  | "TIME_EXIT"
+  | "TP1_RUNNER"
+  | "TP1_BE"
+  | "TP1_SIGNAL"
+  | "TP1_TIME";
+
 interface SignalColorToken {
   fg: string; // var(--bullish) dst
   bg: string; // var(--bullish-bg) dst
@@ -38,6 +47,10 @@ const EXIT_REASON_LABEL: Record<ExitReason, string> = {
   SL: "Stop Loss",
   SELL_SIGNAL: "Sinyal SELL",
   TIME_EXIT: "Batas Waktu",
+  TP1_RUNNER: "TP1 + Runner Trend",
+  TP1_BE: "TP1 + Break-Even",
+  TP1_SIGNAL: "TP1 + Sinyal SELL",
+  TP1_TIME: "TP1 + Batas Waktu",
 };
 
 const EXIT_REASON_COLOR: Record<ExitReason, string> = {
@@ -45,6 +58,10 @@ const EXIT_REASON_COLOR: Record<ExitReason, string> = {
   SL: "var(--bearish)",
   SELL_SIGNAL: "var(--info)",
   TIME_EXIT: "var(--signal-hold)",
+  TP1_RUNNER: "var(--bullish)",
+  TP1_BE: "var(--bullish)",
+  TP1_SIGNAL: "var(--info)",
+  TP1_TIME: "var(--signal-hold)",
 };
 
 export function exitReasonLabel(reason: string): string {
@@ -63,10 +80,27 @@ const CLOSED_STATUS_TO_REASON: Record<string, ExitReason> = {
   CLOSED_SL: "SL",
   CLOSED_SIGNAL: "SELL_SIGNAL",
   CLOSED_TIME: "TIME_EXIT",
+  CLOSED_RUNNER_SMA20: "TP1_RUNNER",
+  CLOSED_TP1_BE: "TP1_BE",
+  CLOSED_TP1_SIGNAL: "TP1_SIGNAL",
+  CLOSED_TP1_TIME: "TP1_TIME",
 };
 
 export function closedStatusToReason(status: string): string {
   return CLOSED_STATUS_TO_REASON[status] ?? status;
+}
+
+export function isPositionRunner(pos: {
+  status?: string | null;
+  sl_price?: number | null;
+  entry_price?: number | null;
+}): boolean {
+  return (
+    pos.status === "OPEN" &&
+    pos.sl_price != null &&
+    pos.entry_price != null &&
+    pos.sl_price >= pos.entry_price
+  );
 }
 
 /** Teks tooltip metrik -- port verbatim dari shared_ui.py::TOOLTIP. */

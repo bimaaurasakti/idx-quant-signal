@@ -16,6 +16,30 @@ export function PositionStatusBanner({ position }: { position: ActivePosition })
     );
   }
 
+  const isRunner =
+    position.sl_price != null &&
+    position.entry_price != null &&
+    position.sl_price >= position.entry_price;
+
+  if (isRunner) {
+    return (
+      <div
+        className="rounded-lg border-l-4 px-4 py-3 text-[13.5px]"
+        style={{ borderLeftColor: "var(--bullish)", backgroundColor: "var(--bullish-bg)" }}
+      >
+        <span className="text-text-primary">
+          🚀 Posisi <span className="font-semibold text-bullish">RUNNER AKTIF</span> (TP1 tercapai &bull; Risiko 0 / SL di Break-Even){" "}
+          sejak <span className="font-mono">{formatDateId(position.entry_date)}</span> di harga{" "}
+          <span className="font-mono">{formatIdr(position.entry_price)}</span> &bull; SL Terkunci:{" "}
+          <span className="font-mono" style={{ color: "var(--bullish)" }}>
+            {formatIdr(position.sl_price)} (BE)
+          </span>{" "}
+          &bull; Trailing Exit: <span className="font-mono">Daily Close &lt; SMA20</span>
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className="rounded-lg border-l-4 px-4 py-3 text-[13.5px]"
@@ -24,7 +48,7 @@ export function PositionStatusBanner({ position }: { position: ActivePosition })
       <span className="text-text-primary">
         📌 Posisi <span className="font-semibold">OPEN</span> sejak{" "}
         <span className="font-mono">{formatDateId(position.entry_date)}</span> di harga{" "}
-        <span className="font-mono">{formatIdr(position.entry_price)}</span> &bull; TP:{" "}
+        <span className="font-mono">{formatIdr(position.entry_price)}</span> &bull; TP1:{" "}
         <span className="font-mono" style={{ color: "var(--bullish)" }}>
           {formatIdr(position.tp_price)}
         </span>{" "}

@@ -7,12 +7,21 @@ export function OngoingPositionGrid({ rows }: { rows: OpenPositionRow[] }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {rows.map((row) => {
         const positive = (row.return_pct_now ?? 0) >= 0;
+        const isRunner =
+          row.sl_price != null &&
+          row.entry_price != null &&
+          row.sl_price >= row.entry_price;
         return (
           <Card key={row.ticker} className="gap-2.5 px-3.5 py-3.5">
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-mono text-[15px] font-semibold text-text-primary">
-                  {row.ticker}
+                <div className="flex items-center gap-1.5 font-mono text-[15px] font-semibold text-text-primary">
+                  <span>{row.ticker}</span>
+                  {isRunner && (
+                    <span className="rounded bg-bullish/10 px-1.5 py-0.5 text-[10px] font-semibold text-bullish">
+                      Runner (BE)
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11.5px] text-text-muted">
                   {row.sektor ?? "–"} &bull; entry {formatDateId(row.entry_date)}
