@@ -1,0 +1,48 @@
+name: Update Sinyal IDX (Mid-Day Monitor & EOD Master)
+
+on:
+  schedule:
+    # Penarikan setelah Sesi 1 tutup (12:37 WIB / 05:37 UTC, Senin-Kamis) - Monitor Only
+    - cron: "37 5 * * 1-4"
+
+    # Penarikan setelah Sesi 1 tutup (12:08 WIB / 05:08 UTC, Jumat) - Monitor Only
+    - cron: "8 5 * * 5"
+
+    # Penarikan setelah Sesi 2 / Pasar tutup (16:34 WIB / 09:34 UTC, Senin-Jumat) - Master EOD
+    - cron: "34 9 * * 1-5"
+
+  workflow_dispatch: {}   # Picu manual dari tab "Actions" di GitHub
+
+jobs:
+  update-signals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: "pipeline/requirements.txt"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pipeline/requirements.txt
+
+      - name: Jalankan quant pipeline update
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          HOUR_UTC=$(date -u +%H)
+          if [ "$HOUR_UTC" = "05" ]; then
+            echo "[RUNNER] Sesi Siang terdeteksi ($HOUR_UTC UTC) -> Menjalankan mode --monitor-only..."
+            python pipeline/worker_fetch_and_update.py --monitor-only
+          else
+            echo "[RUNNER] EOD / Manual terdeteksi ($HOUR_UTC UTC) -> Menjalankan Master Update..."
+            python pipeline/worker_fetch_and_update.py
+          fi
