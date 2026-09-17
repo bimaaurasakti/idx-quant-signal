@@ -1,45 +1,51 @@
 "use client";
 
-import { FlaskConical } from "lucide-react";
+import Link from "next/link";
+import { FlaskConical, BarChart3, ArrowRight } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-/**
- * Backtest Lab -- SENGAJA dinonaktifkan sementara.
- *
- * Sebelumnya halaman ini memanggil FastAPI (metaIndicators + runBacktest)
- * untuk menghitung indikator, sinyal multi-confirmation, dan simulasi
- * trade. Sejak migrasi ke akses Supabase langsung, backend itu tidak lagi
- * dijalankan -- dan engine backtest-nya BELUM di-porting ke TypeScript
- * (butuh source code backend untuk verifikasi formula indikator/sinyal/
- * metrik, supaya angka yang tampil tidak menyesatkan; lihat §6.3, §9.4,
- * §13 di IMPLEMENTATION_PLAN_SUPABASE_MIGRATION.md).
- *
- * `lib/api.ts::metaIndicators()` dan `::runBacktest()` sekarang melempar
- * ApiError yang jelas kalau ada kode lain yang mencoba memanggilnya --
- * halaman ini SENGAJA tidak memanggil keduanya sama sekali, supaya tidak
- * ada request yang gagal di-console atau state loading yang menggantung.
- *
- * Untuk mengaktifkan lagi: kerjakan Fase 2 di rencana implementasi, lalu
- * kembalikan halaman ini ke versi lengkap (indicator picker, param panel,
- * hasil backtest) yang memanggil useIndicatorsMeta()/useRunBacktest() dari
- * hooks/use-meta.ts & hooks/use-backtest.ts seperti semula -- kedua hook
- * itu TIDAK berubah sama sekali selama migrasi ini, jadi tinggal pakai.
- */
 export default function BacktestPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="🧪 Backtest Lab"
-        description="Coba kombinasi indikator sendiri & lihat bagaimana strategi itu tampil di data historis — lengkap dengan replay, indikator, dan posisi entry/exit."
+        title="Backtest Lab"
+        description="Eksplorasi simulasi historis strategi, indikator teknikal, dan replay posisi entry/exit."
       />
 
       <EmptyState
         icon={FlaskConical}
-        title="Backtest Lab sedang dalam pengembangan ulang"
-        description="Halaman ini sementara dinonaktifkan selama migrasi dashboard ke akses Supabase langsung, tanpa backend API terpisah. Screener, Detail Saham, Portfolio, dan Risk Calculator sudah bisa dipakai penuh sekarang — Backtest Lab menyusul setelah engine-nya selesai dipindahkan."
+        title="Backtest Lab Sedang Dimodernisasi"
+        description="Modul simulasi interaktif sedang dialihkan agar dapat berjalan langsung di browser memanfaatkan data harga historis Supabase tanpa beban server terpisah."
       />
+
+      <Card className="border-border bg-surface-1">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 text-xs">
+          <div className="flex items-start gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-400">
+              <BarChart3 className="size-4" />
+            </div>
+            <div>
+              <div className="font-semibold text-text-primary text-[13.5px]">
+                Ingin melihat hasil backtest resmi strategi 5 tahun?
+              </div>
+              <div className="text-text-secondary mt-0.5">
+                Simulasi komprehensif pada 44.000+ candle harian konstituen IDX30/LQ45 telah divalidasi dan tersedia lengkap di halaman Metodologi.
+              </div>
+            </div>
+          </div>
+
+          <Button asChild variant="outline" size="sm" className="border-border bg-surface-0 hover:bg-surface-2 shrink-0">
+            <Link href="/about" className="flex items-center gap-1.5 text-xs">
+              <span>Buka Matriks Benchmark</span>
+              <ArrowRight className="size-3 text-brand" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

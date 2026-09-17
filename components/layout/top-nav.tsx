@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings2 } from "lucide-react";
+import {
+  Compass,
+  FlaskConical,
+  LineChart,
+  Briefcase,
+  ShieldAlert,
+  BookOpen,
+  Settings2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useLastUpdate } from "@/hooks/use-meta";
 
 const NAV_ITEMS = [
-  { href: "/screener", label: "Screener" },
-  { href: "/backtest", label: "Backtest Lab" },
-  { href: "/detail", label: "Detail" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/risk", label: "Risk" },
-  { href: "/about", label: "Tentang" },
+  { href: "/screener", label: "Screener", icon: Compass },
+  { href: "/backtest", label: "Backtest Lab", icon: FlaskConical },
+  { href: "/detail", label: "Detail", icon: LineChart },
+  { href: "/portfolio", label: "Portfolio", icon: Briefcase },
+  { href: "/risk", label: "Risk", icon: ShieldAlert },
+  { href: "/about", label: "Metodologi", icon: BookOpen },
 ];
 
 export function TopNav() {
@@ -23,7 +31,7 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-surface-0/90 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6 lg:gap-8">
           {/* Signature element #2 (§5.3): wordmark + kursor terminal berkedip */}
           <Link
             href="/screener"
@@ -38,18 +46,20 @@ export function TopNav() {
           <nav className="hidden items-center gap-1 md:flex">
             {NAV_ITEMS.map((item) => {
               const active = pathname?.startsWith(item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-all duration-150",
                     active
-                      ? "bg-surface-2 text-text-primary"
+                      ? "bg-surface-2 text-text-primary shadow-xs"
                       : "text-text-secondary hover:bg-surface-1 hover:text-text-primary",
                   )}
                 >
-                  {item.label}
+                  <Icon className={cn("size-3.5", active ? "text-brand" : "text-text-secondary")} />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -57,19 +67,18 @@ export function TopNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-1.5 text-[12px] text-text-secondary sm:flex">
-            <span
-              className="size-1.5 rounded-full bg-bullish"
-              style={{ backgroundColor: "var(--bullish)" }}
-              aria-hidden="true"
-            />
-            <span aria-live="polite">
+          <div className="hidden items-center gap-2 rounded-full border border-border bg-surface-1 px-2.5 py-1 text-[11.5px] text-text-secondary sm:flex">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            </span>
+            <span aria-live="polite" className="font-mono text-[11px]">
               {data?.run_at
-                ? `Update ${new Date(data.run_at).toLocaleTimeString("id-ID", {
+                ? `Sync ${new Date(data.run_at).toLocaleTimeString("id-ID", {
                     hour: "2-digit",
                     minute: "2-digit",
                   })} WIB`
-                : "Memuat status..."}
+                : "Syncing..."}
             </span>
           </div>
           <button

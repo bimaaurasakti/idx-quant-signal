@@ -1,18 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { Calculator, RotateCcw, AlertTriangle, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { TwoTierVisualizer } from "@/components/risk/two-tier-visualizer";
 import { formatIdr, formatNumberId } from "@/lib/format";
 
 /**
- * Formula IDENTIK views/risk.py (§5.7 implementation plan) -- port 1:1,
- * murni client-side, TANPA backend. Recompute real-time tiap input berubah,
- * sama seperti versi Streamlit reactive.
+ * Formula perhitungan position sizing berdasarkan toleransi risiko modal.
+ * Mendukung simulasi Hybrid 2-Tier Exit (SL 1.5 ATR & TP1 2.0 ATR).
  */
 function calcRisk(
   capital: number,
@@ -23,7 +26,7 @@ function calcRisk(
   tpMult: number,
 ) {
   const riskRupiah = capital * (riskPct / 100);
-  const slPrice = entryPrice - slMult * atr;
+  const slPrice = Math.max(entryPrice - slMult * atr, 0);
   const tpPrice = entryPrice + tpMult * atr;
   const riskPerShare = entryPrice - slPrice;
   let shares = riskPerShare > 0 ? Math.floor(riskRupiah / riskPerShare) : 0;
@@ -38,22 +41,45 @@ export default function RiskPage() {
   const [riskPct, setRiskPct] = React.useState(1.0);
   const [entryPrice, setEntryPrice] = React.useState(5000);
   const [atrValue, setAtrValue] = React.useState(100);
-  const [slMult, setSlMult] = React.useState(1.0);
-  const [tpMult, setTpMult] = React.useState(2.0);
+  const [slMult, setSlMult] = React.useState(1.5); // Default strategi baru 1.5 ATR
+  const [tpMult, setTpMult] = React.useState(2.0); // Default strategi baru 2.0 ATR
 
   const result = calcRisk(capital, riskPct, entryPrice, atrValue, slMult, tpMult);
+
+  function resetToStrategyDefaults() {
+    setSlMult(1.5);
+    setTpMult(2.0);
+    setRiskPct(1.0);
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="🧮 Kalkulator Position Sizing & Risk Management"
-        description="Sinyal bagus tidak ada gunanya tanpa position sizing yang benar. Hedge fund sungguhan selalu menentukan ukuran posisi berdasarkan risiko, bukan 'feeling'."
+        title="Kalkulator Position Sizing & Risk Management"
+        description="Sinyal bagus tidak berguna tanpa position sizing yang disiplin. Tentukan alokasi lot dan manajemen risiko 2-tier sebelum entry."
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetToStrategyDefaults}
+            className="flex items-center gap-1.5 border-border bg-surface-1 text-xs text-text-secondary hover:text-text-primary"
+          >
+            <RotateCcw className="size-3.5 text-brand" />
+            <span>Preset Strategi Baru (SL 1.5 / TP1 2.0)</span>
+          </Button>
+        }
       />
 
+      {/* Input Form Grid */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex flex-col gap-5 rounded-lg border border-border bg-surface-1 p-4">
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-1 p-4 text-xs">
+          <div className="font-semibold text-[13.5px] text-text-primary flex items-center gap-2">
+            <Calculator className="size-4 text-emerald-400" />
+            <span>Parameter Modal &amp; Harga</span>
+          </div>
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="capital">Modal total (Rp)</Label>
+            <Label htmlFor="capital">Modal total portofolio (Rp)</Label>
             <Input
               id="capital"
               type="number"
@@ -63,6 +89,7 @@ export default function RiskPage() {
               step={1_000_000}
             />
           </div>
+
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <Label>Risiko per trade (% dari modal)</Label>
@@ -70,8 +97,9 @@ export default function RiskPage() {
             </div>
             <Slider value={[riskPct]} onValueChange={([v]) => setRiskPct(v)} min={0.5} max={5} step={0.5} />
           </div>
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="entry">Harga entry (Rp)</Label>
+            <Label htmlFor="entry">Harga entry pembelian (Rp)</Label>
             <Input
               id="entry"
               type="number"
@@ -83,7 +111,17 @@ export default function RiskPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 rounded-lg border border-border bg-surface-1 p-4">
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface-1 p-4 text-xs">
+          <div className="font-semibold text-[13.5px] text-text-primary flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-blue-400" />
+              <span>Parameter Volatilitas ATR &amp; Kelipatan</span>
+            </div>
+            <Badge variant="outline" className="text-[10px] text-text-secondary">
+              Vol-Based Sizing
+            </Badge>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="atr">ATR(14) saham ini (Rp)</Label>
             <Input
@@ -95,64 +133,84 @@ export default function RiskPage() {
               step={10}
             />
           </div>
+
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <Label>Stop loss = X × ATR</Label>
-              <span className="font-mono text-[13px] text-text-primary">{slMult.toFixed(1)}×</span>
+              <Label>Stop loss awal = X &times; ATR</Label>
+              <span className="font-mono text-[13px] text-text-primary">
+                {slMult.toFixed(1)}&times; ({formatIdr(slMult * atrValue)})
+              </span>
             </div>
-            <Slider value={[slMult]} onValueChange={([v]) => setSlMult(v)} min={0.5} max={3} step={0.5} />
+            <Slider value={[slMult]} onValueChange={([v]) => setSlMult(v)} min={0.5} max={3} step={0.1} />
           </div>
+
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <Label>Take profit = X × ATR</Label>
-              <span className="font-mono text-[13px] text-text-primary">{tpMult.toFixed(1)}×</span>
+              <Label>Take profit 1 (TP1) = X &times; ATR</Label>
+              <span className="font-mono text-[13px] text-text-primary">
+                {tpMult.toFixed(1)}&times; ({formatIdr(tpMult * atrValue)})
+              </span>
             </div>
             <Slider value={[tpMult]} onValueChange={([v]) => setTpMult(v)} min={1} max={5} step={0.5} />
           </div>
         </div>
       </div>
 
+      {/* Over-Capital Warning */}
+      {result.overCapital && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300">
+          <AlertTriangle className="size-4 shrink-0 text-red-400" />
+          <span>
+            <strong>Peringatan Alokasi:</strong> Nilai posisi melebihi modal Anda! Stop loss terlalu ketat relatif terhadap ATR, atau risk % terlalu besar untuk modal saat ini. Perbesar jarak SL atau kurangi persentase risiko.
+          </span>
+        </div>
+      )}
+
+      {/* Two-Tier Visualizer Component */}
+      <TwoTierVisualizer
+        shares={result.shares}
+        entryPrice={entryPrice}
+        atr={atrValue}
+        slMult={slMult}
+        tpMult={tpMult}
+        capital={capital}
+        riskRupiah={result.riskRupiah}
+      />
+
+      {/* Metric Cards Summary */}
       <div>
-        <h2 className="mb-3 text-[1.125rem] font-semibold text-text-primary">Hasil Perhitungan</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <h2 className="mb-3 text-[1.125rem] font-semibold text-text-primary">
+          Ringkasan Metrik Posisi
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <MetricCard
-            label="Jumlah Saham (lot)"
-            value={result.shares}
-            format={(v) => formatNumberId(v)}
+            label="Total Saham (Lot)"
+            value={result.shares / 100}
+            format={(v) => `${formatNumberId(v)} lot`}
             tone="neutral"
           />
           <MetricCard
-            label="Nilai Posisi"
+            label="Total Nilai Posisi"
             value={result.positionValue}
             format={(v) => formatIdr(v)}
             tone="neutral"
           />
           <MetricCard
-            label="Risk : Reward Ratio"
+            label="Risk : Reward ke TP1"
             value={result.rr}
             format={(v) => `1 : ${v.toFixed(2)}`}
-            tone={result.rr >= 1.5 ? "bullish" : "bearish"}
+            tone={result.rr >= 1.3 ? "bullish" : "bearish"}
           />
-          <MetricCard label="Stop Loss" value={result.slPrice} format={(v) => formatIdr(v)} tone="bearish" />
-          <MetricCard label="Take Profit" value={result.tpPrice} format={(v) => formatIdr(v)} tone="bullish" />
+          <MetricCard label="Stop Loss Awal" value={result.slPrice} format={(v) => formatIdr(v)} tone="bearish" />
+          <MetricCard label="Target TP1 (+50%)" value={result.tpPrice} format={(v) => formatIdr(v)} tone="bullish" />
           <MetricCard
-            label="Max Risiko (Rp)"
+            label="Maksimum Risiko (Rp)"
             value={result.riskRupiah}
             format={(v) => formatIdr(v)}
             tone="neutral"
           />
         </div>
       </div>
-
-      {result.overCapital && (
-        <div
-          className="rounded-lg border-l-4 px-4 py-3 text-[13.5px] text-text-primary"
-          style={{ borderLeftColor: "var(--bearish)", backgroundColor: "var(--bearish-bg)" }}
-        >
-          ⚠️ Nilai posisi melebihi modal Anda! Stop loss terlalu ketat relatif ke ATR, atau risk % per
-          trade terlalu besar untuk modal ini. Perbesar jarak SL atau kurangi risk %.
-        </div>
-      )}
     </div>
   );
 }

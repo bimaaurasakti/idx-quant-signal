@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { Briefcase, Inbox, AlertTriangle, TableProperties } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { FiltersBar } from "@/components/portfolio/filters-bar";
 import { ExitBreakdownChart } from "@/components/portfolio/exit-breakdown-chart";
 import { SectorPerformanceChart } from "@/components/portfolio/sector-performance-chart";
@@ -49,8 +51,15 @@ export default function PortfolioPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="💼 Portfolio — Riwayat Posisi Closed"
-        description="Jejak sinyal LIVE — posisi yang benar-benar dibuka & ditutup hari demi hari, tanpa lookahead, tidak pernah direvisi ke belakang."
+        title="Portfolio — Riwayat Posisi Closed"
+        description="Jejak sinyal LIVE — posisi yang dibuka dan ditutup hari demi hari tanpa lookahead bias dan tidak pernah direvisi ke belakang."
+        action={
+          <div className="flex items-center gap-2 pt-1">
+            <Badge variant="outline" className="border-border bg-surface-1 text-text-secondary text-[11px]">
+              <Briefcase className="size-3 text-blue-400" /> Live Paper Portfolio
+            </Badge>
+          </div>
+        }
       />
 
       {isLoading && (
@@ -73,8 +82,9 @@ export default function PortfolioPage() {
 
       {data && data.positions.length === 0 && (
         <EmptyState
-          title="📭 Belum ada posisi yang closed."
-          description="Data akan mulai muncul setelah sebuah posisi live mencapai Take Profit, Stop Loss, sinyal SELL, atau batas waktu holding (20 hari bursa)."
+          icon={Inbox}
+          title="Belum ada posisi yang closed."
+          description="Data akan mulai muncul setelah posisi live mencapai Take Profit, Stop Loss, sinyal SELL, atau batas waktu holding."
         />
       )}
 
@@ -93,12 +103,11 @@ export default function PortfolioPage() {
           />
 
           {metrics && metrics.n < 20 && (
-            <div
-              className="rounded-lg border-l-4 px-4 py-2.5 text-[13px] text-text-primary"
-              style={{ borderLeftColor: "var(--signal-hold)", backgroundColor: "var(--signal-hold-bg)" }}
-            >
-              ⚠️ Sample masih kecil (n={metrics.n} posisi closed). Hati-hati menarik kesimpulan statistik
-              dari jumlah trade sekecil ini.
+            <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-300">
+              <AlertTriangle className="size-4 shrink-0 text-amber-400" />
+              <span>
+                <strong>Catatan Sampel:</strong> Jumlah posisi closed saat ini masih kecil (n={metrics.n} trade). Harap berhati-hati menarik kesimpulan statistik definitif dari sampel yang masih terus berkembang ini.
+              </span>
             </div>
           )}
 
@@ -143,7 +152,7 @@ export default function PortfolioPage() {
               </div>
               {metrics.profitFactor == null && (
                 <p className="text-[11.5px] text-text-muted">
-                  ∞ = belum ada trade rugi sama sekali dalam sample/filter saat ini.
+                  &infin; = belum ada trade rugi sama sekali dalam sampel atau filter saat ini.
                 </p>
               )}
 
@@ -154,9 +163,12 @@ export default function PortfolioPage() {
               <CumulativeReturnChart positions={filtered} />
 
               <div>
-                <h2 className="mb-3 text-[1.125rem] font-semibold text-text-primary">
-                  📋 Detail Posisi Closed
-                </h2>
+                <div className="flex items-center gap-2 mb-3">
+                  <TableProperties className="size-4 text-blue-400" />
+                  <h2 className="text-[1.125rem] font-semibold text-text-primary">
+                    Detail Posisi Closed
+                  </h2>
+                </div>
                 <ClosedPositionsTable positions={filtered} />
               </div>
             </>
