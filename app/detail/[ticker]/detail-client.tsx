@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useRouter } from "next/navigation";
 import { History, ShieldCheck, CheckCircle2, Layers } from "lucide-react";
 
@@ -12,6 +13,7 @@ import { PriceChart } from "@/components/shared/price-chart";
 import { PriceHeader } from "@/components/detail/price-header";
 import { PositionStatusBanner } from "@/components/detail/position-status-banner";
 import { TradeHistoryTable } from "@/components/detail/trade-history-table";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { useTickerDetail } from "@/hooks/use-detail";
 import { useTickersMeta } from "@/hooks/use-meta";
 import { formatPctId, formatNumberId } from "@/lib/format";
@@ -22,9 +24,15 @@ export function DetailClient({ ticker }: { ticker: string }) {
   const { data, isLoading, isError, error } = useTickerDetail(ticker);
   const { data: tickersMeta } = useTickersMeta();
 
-  const allTickers = tickersMeta
-    ? Array.from(new Set(Object.values(tickersMeta.sectors).flat())).sort()
-    : [];
+  const allTickers = React.useMemo(() => {
+    if (!tickersMeta) return [];
+    return Array.from(new Set(Object.values(tickersMeta.sectors).flat())).sort();
+  }, [tickersMeta]);
+
+  const tickerOptions: SelectOption[] = React.useMemo(
+    () => allTickers.map((t) => ({ value: t, label: t })),
+    [allTickers],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,17 +43,17 @@ export function DetailClient({ ticker }: { ticker: string }) {
           allTickers.length > 0 ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-text-secondary hidden sm:inline">Pilih Emiten:</span>
-              <select
-                value={ticker}
-                onChange={(e) => router.push(`/detail/${e.target.value}`)}
-                className="rounded-md border border-border bg-surface-1 px-3 py-1.5 font-mono text-[13px] text-text-primary focus:border-brand focus:outline-none"
-              >
-                {allTickers.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <div className="w-[140px] sm:w-[160px]">
+                <Select
+                  value={ticker}
+                  onValueChange={(val) => router.push(`/detail/${val}`)}
+                  options={tickerOptions}
+                  searchable={true}
+                  searchPlaceholder="Cari emiten..."
+                  placeholder="Pilih emiten"
+                  triggerClassName="h-8 font-mono text-xs font-semibold bg-surface-1"
+                />
+              </div>
             </div>
           ) : undefined
         }

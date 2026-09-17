@@ -79,7 +79,7 @@ export default function RiskPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="capital">Modal total portofolio (Rp)</Label>
+            <Label htmlFor="capital">Modal total portofolio</Label>
             <Input
               id="capital"
               type="number"
@@ -87,6 +87,8 @@ export default function RiskPage() {
               onChange={(e) => setCapital(Number(e.target.value) || 0)}
               min={1_000_000}
               step={1_000_000}
+              prefix={<span className="font-mono text-xs font-semibold text-text-muted">Rp</span>}
+              className="font-mono text-xs"
             />
           </div>
 
@@ -99,7 +101,7 @@ export default function RiskPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="entry">Harga entry pembelian (Rp)</Label>
+            <Label htmlFor="entry">Harga entry pembelian</Label>
             <Input
               id="entry"
               type="number"
@@ -107,6 +109,8 @@ export default function RiskPage() {
               onChange={(e) => setEntryPrice(Number(e.target.value) || 0)}
               min={1}
               step={50}
+              prefix={<span className="font-mono text-xs font-semibold text-text-muted">Rp</span>}
+              className="font-mono text-xs"
             />
           </div>
         </div>
@@ -123,7 +127,7 @@ export default function RiskPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="atr">ATR(14) saham ini (Rp)</Label>
+            <Label htmlFor="atr">ATR(14) saham ini</Label>
             <Input
               id="atr"
               type="number"
@@ -131,6 +135,8 @@ export default function RiskPage() {
               onChange={(e) => setAtrValue(Number(e.target.value) || 0)}
               min={1}
               step={10}
+              prefix={<span className="font-mono text-xs font-semibold text-text-muted">Rp</span>}
+              className="font-mono text-xs"
             />
           </div>
 

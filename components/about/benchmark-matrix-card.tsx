@@ -1,6 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, TrendingUp, ShieldCheck, Zap } from "lucide-react";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 interface BenchmarkMetric {
   label: string;
@@ -97,29 +105,29 @@ export function BenchmarkMatrixCard() {
       <CardContent className="flex flex-col gap-4 text-xs">
         {/* Responsive Table / Grid */}
         <div className="overflow-x-auto rounded-md border border-border bg-surface-0">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-border bg-surface-2/60 text-[11.5px] font-medium text-text-secondary">
-                <th className="py-2.5 px-3">Metrik Kuantitatif</th>
-                <th className="py-2.5 px-3">Sistem Lama (Defisit)</th>
-                <th className="py-2.5 px-3">Engine Baru (Revamped)</th>
-                <th className="py-2.5 px-3 text-right">Dampak Kuantitatif</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border font-mono text-[12px]">
+          <Table className="text-xs">
+            <TableHeader>
+              <TableRow className="border-border bg-surface-2/60 text-[11.5px] font-medium text-text-secondary hover:bg-surface-2/60">
+                <TableHead className="py-2.5 px-3">Metrik Kuantitatif</TableHead>
+                <TableHead className="py-2.5 px-3">Sistem Lama (Defisit)</TableHead>
+                <TableHead className="py-2.5 px-3">Engine Baru (Revamped)</TableHead>
+                <TableHead className="py-2.5 px-3 text-right">Dampak Kuantitatif</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="font-mono text-[12px]">
               {BENCHMARK_METRICS.map((m, idx) => (
-                <tr key={idx} className="hover:bg-surface-2/40 transition-colors">
-                  <td className="py-2.5 px-3 font-sans text-text-primary">
+                <TableRow key={idx} className="border-border hover:bg-surface-2/40 transition-colors">
+                  <TableCell className="py-2.5 px-3 font-sans text-text-primary">
                     <div className="font-medium">{m.label}</div>
                     <div className="text-[10.5px] text-text-secondary">{m.detail}</div>
-                  </td>
-                  <td className="py-2.5 px-3 text-red-400/90 line-through decoration-red-400/50">
+                  </TableCell>
+                  <TableCell className="py-2.5 px-3 text-red-400/90 line-through decoration-red-400/50">
                     {m.baseline}
-                  </td>
-                  <td className="py-2.5 px-3 font-semibold text-emerald-400">
+                  </TableCell>
+                  <TableCell className="py-2.5 px-3 font-semibold text-emerald-400">
                     {m.revamped}
-                  </td>
-                  <td className="py-2.5 px-3 text-right">
+                  </TableCell>
+                  <TableCell className="py-2.5 px-3 text-right">
                     <span
                       className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold ${
                         m.impactType === "positive"
@@ -130,11 +138,11 @@ export function BenchmarkMatrixCard() {
                       {m.impactType === "positive" && <TrendingUp className="size-3" />}
                       {m.impact}
                     </span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Insight Callout */}

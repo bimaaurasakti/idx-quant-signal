@@ -3,6 +3,14 @@
 import { MetricCard } from "@/components/shared/metric-card";
 import { ConvictionMeter } from "@/components/shared/conviction-meter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { BacktestChart } from "@/components/backtest/backtest-chart";
 import { ReplayScrubber } from "@/components/backtest/replay-scrubber";
 import { EquityCurveChart } from "@/components/backtest/equity-curve-chart";
@@ -99,48 +107,57 @@ export function BacktestResult({ result, playbackDate, onPlaybackDateChange }: B
         </TabsContent>
 
         <TabsContent value="trades">
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-[12.5px]">
-              <thead className="bg-surface-1 text-text-secondary">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">Entry</th>
-                  <th className="px-3 py-2 text-left font-medium">Exit</th>
-                  <th className="px-3 py-2 text-right font-medium">Harga Entry</th>
-                  <th className="px-3 py-2 text-right font-medium">Harga Exit</th>
-                  <th className="px-3 py-2 text-right font-medium">Return</th>
-                  <th className="px-3 py-2 text-left font-medium">Alasan</th>
-                  <th className="px-3 py-2 text-right font-medium">Hold</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="overflow-hidden rounded-lg border border-border bg-surface-1">
+            <Table className="text-xs">
+              <TableHeader className="bg-surface-1">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Entry</TableHead>
+                  <TableHead>Exit</TableHead>
+                  <TableHead className="text-right">Harga Entry</TableHead>
+                  <TableHead className="text-right">Harga Exit</TableHead>
+                  <TableHead className="text-right">Return</TableHead>
+                  <TableHead>Alasan</TableHead>
+                  <TableHead className="text-right">Hold</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {trades.map((t, i) => {
                   const color = exitReasonColor(t.reason);
                   const positive = t.return_pct >= 0;
                   return (
-                    <tr
+                    <TableRow
                       key={`${t.entry_date}-${i}`}
-                      className="border-t border-border-subtle"
-                      style={{ backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}
+                      className="border-border-subtle transition-colors"
                     >
-                      <td className="px-3 py-2 font-mono text-text-primary">{t.entry_date}</td>
-                      <td className="px-3 py-2 font-mono text-text-primary">{t.exit_date}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatIdr(t.entry_price)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatIdr(t.exit_price)}</td>
-                      <td
-                        className="px-3 py-2 text-right font-mono font-semibold"
-                        style={{ color: positive ? "var(--bullish)" : "var(--bearish)" }}
+                      <TableCell className="font-mono text-xs text-text-primary">{t.entry_date}</TableCell>
+                      <TableCell className="font-mono text-xs text-text-primary">{t.exit_date}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-text-secondary">{formatIdr(t.entry_price)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-text-secondary">{formatIdr(t.exit_price)}</TableCell>
+                      <TableCell
+                        className={`text-right font-mono font-semibold text-xs ${
+                          positive ? "text-bullish" : "text-bearish"
+                        }`}
                       >
                         {formatPctId(t.return_pct)}
-                      </td>
-                      <td className="px-3 py-2" style={{ color }}>
-                        {exitReasonLabel(t.reason)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-text-secondary">{t.hold_days}h</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                          style={{
+                            color,
+                            borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+                            backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
+                          }}
+                        >
+                          {exitReasonLabel(t.reason)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-text-secondary">{t.hold_days}h</TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
 
