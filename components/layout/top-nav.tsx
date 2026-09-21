@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { formatSyncDateTimeId } from "@/lib/format";
 import { useLastUpdate } from "@/hooks/use-meta";
 
 const NAV_ITEMS = [
@@ -74,10 +75,7 @@ export function TopNav() {
             </span>
             <span aria-live="polite" className="font-mono text-[11px]">
               {data?.run_at
-                ? `Sync ${new Date(data.run_at).toLocaleTimeString("id-ID", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })} WIB`
+                ? `Sync ${formatSyncDateTimeId(data.run_at)}`
                 : "Syncing..."}
             </span>
           </div>

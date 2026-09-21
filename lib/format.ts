@@ -51,3 +51,32 @@ export function formatDateId(value: string | null | undefined): string {
     timeZone: "UTC",
   }).format(d);
 }
+
+/**
+ * Format tanggal & jam sync gaya Indonesia ("21 Sep 2026, 14:30 WIB").
+ * Mengunci zona waktu "Asia/Jakarta" agar selalu akurat WIB di mana pun klien berada.
+ */
+export function formatSyncDateTimeId(value: string | null | undefined): string {
+  if (!value) return "–";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "–";
+
+  const datePart = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(d);
+
+  const timePart = new Intl.DateTimeFormat("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Jakarta",
+  })
+    .format(d)
+    .replace(".", ":");
+
+  return `${datePart}, ${timePart} WIB`;
+}
+
