@@ -25,6 +25,7 @@ import {
   mapPriceBar,
   mapScreenerRow,
   mapTradeRow,
+  mapOngoingClosedToTradeRow,
 } from "@/lib/supabase/mappers";
 import type {
   BacktestTradesRow,
@@ -102,18 +103,40 @@ async function screener(): Promise<ScreenerResponse> {
   };
 }
 
+async function fetchFullPriceHistory(ticker: string): Promise<PriceHistoryRow[]> {
+  const PAGE = 1000;
+  // PostgREST membatasi maksimal 1000 baris per query.
+  // Dengan 2 chunk paralel (0-999 dan 1000-1999), kita mengambil hingga 2.000 lilin (~8 tahun bursa),
+  // menjamin seluruh data dari 2021 hingga tanggal hari ini (2026) termuat penuh tanpa terpotong di November 2025.
+  const [p0, p1] = await Promise.all([
+    supabase
+      .from("price_history")
+      .select<"*", PriceHistoryRow>("*")
+      .eq("ticker", ticker)
+      .order("date", { ascending: true })
+      .range(0, PAGE - 1),
+    supabase
+      .from("price_history")
+      .select<"*", PriceHistoryRow>("*")
+      .eq("ticker", ticker)
+      .order("date", { ascending: true })
+      .range(PAGE, PAGE * 2 - 1),
+  ]);
+
+  assertNoError("price_history:chunk0", p0.error);
+  assertNoError("price_history:chunk1", p1.error);
+
+  return [...(p0.data ?? []), ...(p1.data ?? [])];
+}
+
 async function tickerDetail(ticker: string): Promise<TickerDetailResponse> {
-  const [screenerRes, barsRes, activeRes, tradesRes] = await Promise.all([
+  const [screenerRes, fullBars, activeRes, tradesRes, closedPositionsRes] = await Promise.all([
     supabase
       .from("screener_results")
       .select<"*", ScreenerResultsRow>("*")
       .eq("ticker", ticker)
       .maybeSingle(),
-    supabase
-      .from("price_history")
-      .select<"*", PriceHistoryRow>("*")
-      .eq("ticker", ticker)
-      .order("date", { ascending: true }),
+    fetchFullPriceHistory(ticker),
     // Unique index `one_active_position_per_ticker` di schema.sql menjamin
     // maksimal 1 baris aktif (PENDING_ENTRY/OPEN) per ticker -> aman
     // pakai maybeSingle().
@@ -128,19 +151,27 @@ async function tickerDetail(ticker: string): Promise<TickerDetailResponse> {
       .select<"*", BacktestTradesRow>("*")
       .eq("ticker", ticker)
       .order("exit_date", { ascending: true }),
+    supabase
+      .from("ongoing_positions")
+      .select<"*", OngoingPositionsRow>("*")
+      .eq("ticker", ticker)
+      .like("status", "CLOSED_%")
+      .order("exit_date", { ascending: true }),
   ]);
 
   assertNoError("screener_results", screenerRes.error);
-  assertNoError("price_history", barsRes.error);
   assertNoError("ongoing_positions", activeRes.error);
   assertNoError("backtest_trades", tradesRes.error);
+  assertNoError("ongoing_positions:CLOSED", closedPositionsRes.error);
 
   if (!screenerRes.data) {
     throw new ApiError(404, `Ticker "${ticker}" tidak ditemukan di screener_results.`);
   }
 
-  const priceBars = (barsRes.data ?? []).map(mapPriceBar);
-  const trades = (tradesRes.data ?? []).map(mapTradeRow);
+  const priceBars = fullBars.map(mapPriceBar);
+  const backtestTrades = (tradesRes.data ?? []).map(mapTradeRow);
+  const closedTrades = (closedPositionsRes.data ?? []).map(mapOngoingClosedToTradeRow);
+  const trades = backtestTrades.length > 0 ? backtestTrades : closedTrades;
   const { change, change_pct } = computeChangeAndChangePct(priceBars);
 
   return {

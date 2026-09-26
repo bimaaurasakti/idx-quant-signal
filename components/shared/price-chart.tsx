@@ -64,6 +64,24 @@ function formatExitReason(reason?: string | null): string {
   }
 }
 
+function normalizeTime(time: Time | unknown): string {
+  if (!time) return "";
+  if (typeof time === "string") return time;
+  if (typeof time === "object" && time !== null) {
+    if ("year" in time && "month" in time && "day" in time) {
+      const t = time as { year: number; month: number; day: number };
+      const m = String(t.month).padStart(2, "0");
+      const d = String(t.day).padStart(2, "0");
+      return `${t.year}-${m}-${d}`;
+    }
+  }
+  if (typeof time === "number") {
+    const dt = new Date(time * 1000);
+    return dt.toISOString().split("T")[0];
+  }
+  return String(time);
+}
+
 /**
  * Chart candlestick + SMA50/SMA200 overlay + marker BUY/EXIT terhubung (pane 0),
  * RSI (pane 1), MACD (pane 2) -- SATU instance chart lightweight-charts v5
@@ -331,7 +349,7 @@ export function PriceChart({
         return;
       }
 
-      const currentDateStr = String(param.time);
+      const currentDateStr = normalizeTime(param.time);
       const matched = dateToTradeMap.get(currentDateStr);
 
       if (matched) {

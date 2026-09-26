@@ -77,6 +77,19 @@ export function mapTradeRow(row: BacktestTradesRow): TradeRow {
   };
 }
 
+export function mapOngoingClosedToTradeRow(pos: OngoingPositionsRow): TradeRow {
+  return {
+    entry_date: pos.entry_date ?? "",
+    exit_date: pos.exit_date ?? "",
+    entry_price: pos.entry_price ?? 0,
+    exit_price: pos.exit_price ?? 0,
+    return_pct: pos.return_pct ?? 0,
+    reason: (pos.exit_reason ?? "TIME_EXIT") as TradeRow["reason"],
+    hold_days:
+      pos.entry_date && pos.exit_date ? businessDaysBetween(pos.entry_date, pos.exit_date) : 0,
+  };
+}
+
 export function mapActivePosition(pos: OngoingPositionsRow): ActivePosition {
   return {
     status: pos.status as ActivePosition["status"],
