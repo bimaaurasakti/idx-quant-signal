@@ -214,9 +214,9 @@ async function metaLastUpdate(): Promise<LastUpdateResponse> {
   const { data, error } = await supabase
     .from("update_log")
     .select<
-      "run_at, tickers_processed, tickers_failed, status",
-      Pick<UpdateLogRow, "run_at" | "tickers_processed" | "tickers_failed" | "status">
-    >("run_at, tickers_processed, tickers_failed, status")
+      "run_at, tickers_processed, tickers_failed, status, notes",
+      Pick<UpdateLogRow, "run_at" | "tickers_processed" | "tickers_failed" | "status" | "notes">
+    >("run_at, tickers_processed, tickers_failed, status, notes")
     .order("run_at", { ascending: false })
     .limit(1);
   assertNoError("update_log", error);
@@ -227,6 +227,7 @@ async function metaLastUpdate(): Promise<LastUpdateResponse> {
     tickers_processed: latest?.tickers_processed ?? null,
     tickers_failed: latest?.tickers_failed ?? null,
     status: (latest?.status as LastUpdateResponse["status"]) ?? null,
+    notes: latest?.notes ?? null,
   };
 }
 

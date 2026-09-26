@@ -42,14 +42,14 @@ def now_wib() -> datetime:
     return datetime.now(ZoneInfo("Asia/Jakarta"))
 
 
-def process_one_ticker(client, ticker: str, market_bullish: bool = True) -> tuple[bool, dict | None]:
+def process_one_ticker(client, ticker: str, market_regime: dict | None = None) -> tuple[bool, dict | None]:
     """Return (sukses: bool, aksi_posisi: dict|None)."""
     ticker_clean = ticker.replace(".JK", "")
     raw = fetch_history(ticker, period=PERIOD)
     if raw is None or raw.empty or len(raw) < MIN_BARS_REQUIRED:
         return False, None
 
-    d = generate_signals(raw, market_bullish=market_bullish)
+    d = generate_signals(raw, market_regime=market_regime)
     summary = latest_signal_summary(d)
     bt = backtest_signals(d)
     sec = get_sector_of(ticker_clean)
@@ -77,14 +77,14 @@ def process_one_ticker(client, ticker: str, market_bullish: bool = True) -> tupl
     replace_price_history(client, ticker_clean, d)
     replace_backtest_trades(client, ticker_clean, bt["trades"])
 
-    action = sync_position(client, ticker_clean, d, sector=sec)
+    action = sync_position(client, ticker_clean, d, sector=sec, market_regime=market_regime)
     return True, action
 
 
-def _process_with_timeout(client, ticker: str, market_bullish: bool = True) -> tuple[bool, dict | None]:
+def _process_with_timeout(client, ticker: str, market_regime: dict | None = None) -> tuple[bool, dict | None]:
     pool = ThreadPoolExecutor(max_workers=1)
     try:
-        fut = pool.submit(process_one_ticker, client, ticker, market_bullish)
+        fut = pool.submit(process_one_ticker, client, ticker, market_regime)
         return fut.result(timeout=TICKER_TIMEOUT)
     except FuturesTimeout:
         print(f"[TIMEOUT] {ticker} — melebihi {TICKER_TIMEOUT}s, dilewati")
@@ -164,9 +164,11 @@ def main():
     print(f"[EOD MASTER] Memulai update harian EOD pada {today} (WIB)")
 
     ihsg_raw = fetch_history("^JKSE", period="1y")
-    market_bullish = check_ihsg_regime(ihsg_raw)
-    regime_label = "BULLISH / RISK-ON (BUY diizinkan)" if market_bullish else "BEARISH / DEFENSIVE (BUY diblokir)"
-    print(f"[MARKET REGIME] IHSG (^JKSE): {regime_label}")
+    regime = check_ihsg_regime(ihsg_raw)
+    print(f"[MARKET REGIME] IHSG (^JKSE): {regime['tier']} (Sizing: {int(regime['sizing']*100)}%, MaxPos: {regime['max_pos']})")
+    print(f"                {regime['description']}")
+    if regime.get("sma200"):
+        print(f"                IHSG Close: {regime['last_close']} vs SMA200: {regime['sma200']} ({regime['dist_sma200_pct']}%)")
 
     universe_tickers = get_all_tickers(with_suffix=True)
     legacy_tickers = [f"{t}.JK" for t in fetch_active_position_tickers(client)]
@@ -181,7 +183,7 @@ def main():
 
     for i, ticker in enumerate(all_tickers, start=1):
         try:
-            ok, action = _process_with_timeout(client, ticker, market_bullish=market_bullish)
+            ok, action = _process_with_timeout(client, ticker, market_regime=regime)
             if ok:
                 processed += 1
                 tag = f"sinyal={action['type']}" if action else "tidak ada aksi posisi"
@@ -209,7 +211,7 @@ def main():
             "tickers_processed": processed,
             "tickers_failed": failed,
             "status": "OK" if processed > 0 else "FAILED",
-            "notes": f"[EOD MASTER | IHSG={'BULL' if market_bullish else 'BEAR'}] {len(position_actions)} aksi posisi | {elapsed}s",
+            "notes": f"[EOD MASTER | TIER={regime['tier']} | SIZING={int(regime['sizing']*100)}%] {len(position_actions)} aksi posisi | {elapsed}s",
         })
     except Exception as e:
         print(f"[WARN] Gagal mencatat ringkasan run ke Supabase: {e}")

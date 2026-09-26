@@ -7,19 +7,22 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useScreener } from "@/hooks/use-screener";
+import { useMarketRegime } from "@/hooks/use-meta";
 import { BuyTomorrowGrid } from "@/components/screener/buy-tomorrow-grid";
 import { OngoingPositionGrid } from "@/components/screener/ongoing-position-grid";
 import { RankingTable } from "@/components/screener/ranking-table";
+import { MarketRegimeCard } from "@/components/screener/market-regime-card";
 
 export default function ScreenerPage() {
   const { data, isLoading, isError, error } = useScreener();
+  const { regime } = useMarketRegime();
 
   const activeCount = data?.ongoing_positions.length ?? 0;
-  const maxSlots = 7;
+  const maxSlots = regime.max_positions || 7;
   const slotsFull = activeCount >= maxSlots;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Screener Kuantitatif"
         description="Sinyal BUY Besok, posisi aktif berjalan, dan ranking momentum seluruh saham IDX30 & LQ45."
@@ -31,17 +34,10 @@ export default function ScreenerPage() {
 
             <Badge
               variant="outline"
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px]"
-            >
-              <ShieldCheck className="size-3" /> Regime: IHSG &gt; SMA200
-            </Badge>
-
-            <Badge
-              variant="outline"
               className={`text-[11px] ${
                 slotsFull
                   ? "border-red-500/30 bg-red-500/10 text-red-400"
-                  : activeCount >= 5
+                  : activeCount >= Math.max(1, maxSlots - 2)
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
                   : "border-border bg-surface-1 text-text-secondary"
               }`}
@@ -51,6 +47,8 @@ export default function ScreenerPage() {
           </div>
         }
       />
+
+      <MarketRegimeCard regime={regime} activeCount={activeCount} />
 
       {isLoading && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

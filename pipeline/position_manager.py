@@ -18,7 +18,13 @@ MAX_ACTIVE_POSITIONS = 7
 MAX_SECTOR_POSITIONS = 2
 
 
-def sync_position(client, ticker: str, d: pd.DataFrame, sector: str | None = None) -> dict | None:
+def sync_position(
+    client,
+    ticker: str,
+    d: pd.DataFrame,
+    sector: str | None = None,
+    market_regime: dict | None = None,
+) -> dict | None:
     if d is None or d.empty:
         return None
 
@@ -31,7 +37,9 @@ def sync_position(client, ticker: str, d: pd.DataFrame, sector: str | None = Non
     if active is not None:
         return _handle_existing_position(client, ticker, active, last_row, last_date)
 
-    return _maybe_open_new_position(client, ticker, last_row, last_date, sector=sector)
+    return _maybe_open_new_position(
+        client, ticker, last_row, last_date, sector=sector, market_regime=market_regime
+    )
 
 
 def _handle_existing_position(client, ticker, active, last_row, last_date) -> dict | None:
@@ -186,7 +194,14 @@ def _handle_existing_position(client, ticker, active, last_row, last_date) -> di
     return None
 
 
-def _maybe_open_new_position(client, ticker, last_row, last_date, sector: str | None = None) -> dict | None:
+def _maybe_open_new_position(
+    client,
+    ticker: str,
+    last_row,
+    last_date,
+    sector: str | None = None,
+    market_regime: dict | None = None,
+) -> dict | None:
     if int(last_row["Signal"]) != 1:
         return None
 
@@ -194,10 +209,15 @@ def _maybe_open_new_position(client, ticker, last_row, last_date, sector: str | 
     if atr_val is None or pd.isna(atr_val):
         return None
 
+    max_active = market_regime.get("max_pos", MAX_ACTIVE_POSITIONS) if market_regime else MAX_ACTIVE_POSITIONS
+    if max_active <= 0:
+        return {"type": "REJECTED_DEFENSIVE", "ticker": ticker, "reason": "Market Regime Defensive (0% sizing)"}
+
     try:
         active_positions = fetch_all_active_positions(client)
-        if len(active_positions) >= MAX_ACTIVE_POSITIONS:
-            return {"type": "REJECTED_CAPACITY", "ticker": ticker, "reason": f"Maks {MAX_ACTIVE_POSITIONS} posisi aktif tercapai"}
+        if len(active_positions) >= max_active:
+            tier_name = market_regime.get("tier", "CURRENT") if market_regime else ""
+            return {"type": "REJECTED_CAPACITY", "ticker": ticker, "reason": f"Maks {max_active} posisi aktif ({tier_name}) tercapai"}
 
         sec = sector or get_sector_of(ticker)
         if sec:

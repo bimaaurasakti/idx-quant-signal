@@ -150,7 +150,13 @@ export function DetailClient({ ticker }: { ticker: string }) {
           </div>
 
           {data.price_history.length > 0 ? (
-            <PriceChart bars={data.price_history} />
+            <PriceChart
+              bars={data.price_history}
+              trades={data.trades}
+              activePosition={data.active_position}
+              ticker={ticker}
+              lastClose={data.last_close}
+            />
           ) : (
             <EmptyState title="Data harga belum tersedia untuk saham ini." />
           )}

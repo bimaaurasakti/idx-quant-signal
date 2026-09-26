@@ -9,7 +9,7 @@
  * IMPLEMENTATION_PLAN_SUPABASE_MIGRATION.md untuk penjelasan trade-off
  * tiap fungsi.
  */
-import type { PriceBar } from "@/lib/types";
+import type { MarketRegimeInfo, PriceBar } from "@/lib/types";
 
 /**
  * Aproksimasi CEPAT hari kerja (Senin-Jumat) antara dua tanggal ISO
@@ -76,4 +76,67 @@ export function computeChangeAndChangePct(
 
 export function sum(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0);
+}
+
+/**
+  * Parse catatan sinkronisasi update_log menjadi structured MarketRegimeInfo
+  * untuk visualisasi widget Market Regime di header Screener.
+  */
+export function parseMarketRegime(notes: string | null | undefined): MarketRegimeInfo {
+  if (!notes) {
+    return {
+      tier: "HIGH_ALPHA",
+      macro_bull: true,
+      momentum_green: true,
+      sizing_pct: 100,
+      max_positions: 7,
+      description: "Rezim default High Alpha. Full deployment.",
+    };
+  }
+
+  const isTactical = notes.includes("TIER=TACTICAL_SWING");
+  const isHighAlpha = notes.includes("TIER=HIGH_ALPHA") || notes.includes("IHSG=BULL");
+  const isDefensive = notes.includes("TIER=DEFENSIVE") || notes.includes("IHSG=BEAR");
+
+  if (isTactical) {
+    return {
+      tier: "TACTICAL_SWING",
+      macro_bull: false,
+      momentum_green: true,
+      sizing_pct: 50,
+      max_positions: 3,
+      description: "IHSG Bearish namun Momentum Hijau/Rebound. Alokasi taktis 50% lot untuk leading stocks.",
+    };
+  }
+
+  if (isHighAlpha) {
+    return {
+      tier: "HIGH_ALPHA",
+      macro_bull: true,
+      momentum_green: true,
+      sizing_pct: 100,
+      max_positions: 7,
+      description: "IHSG Bullish & Momentum Kuat. Full deployment 100% standard lot.",
+    };
+  }
+
+  if (isDefensive) {
+    return {
+      tier: "DEFENSIVE",
+      macro_bull: false,
+      momentum_green: false,
+      sizing_pct: 0,
+      max_positions: 0,
+      description: "IHSG Risk-Off / Momentum Melemah. Menahan entri baru (0% sizing) untuk mengamankan modal.",
+    };
+  }
+
+  return {
+    tier: "HIGH_ALPHA",
+    macro_bull: true,
+    momentum_green: true,
+    sizing_pct: 100,
+    max_positions: 7,
+    description: "Rezim pasar aktif.",
+  };
 }

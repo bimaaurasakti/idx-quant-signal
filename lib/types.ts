@@ -34,6 +34,16 @@ export interface LastUpdateResponse {
   tickers_processed: number | null;
   tickers_failed: number | null;
   status: "OK" | "SKIPPED" | "FAILED" | null;
+  notes?: string | null;
+}
+
+export interface MarketRegimeInfo {
+  tier: "HIGH_ALPHA" | "TACTICAL_SWING" | "DEFENSIVE";
+  macro_bull: boolean;
+  momentum_green: boolean;
+  sizing_pct: number;
+  max_positions: number;
+  description: string;
 }
 
 export interface TickersMetaResponse {
