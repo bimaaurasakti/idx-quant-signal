@@ -1,5 +1,4 @@
 import { SignalBadge } from "@/components/shared/signal-badge";
-import { ConvictionMeter } from "@/components/shared/conviction-meter";
 import { formatIdr, formatPctId } from "@/lib/format";
 
 interface PriceHeaderProps {
@@ -9,8 +8,7 @@ interface PriceHeaderProps {
   change: number | null;
   changePct: number | null;
   signal: string | null;
-  filled: number;
-  total: number;
+  hasActivePosition?: boolean;
 }
 
 export function PriceHeader({
@@ -20,10 +18,18 @@ export function PriceHeader({
   change,
   changePct,
   signal,
-  filled,
-  total,
+  hasActivePosition = false,
 }: PriceHeaderProps) {
   const positive = (change ?? 0) >= 0;
+
+  // Resolusi status sinyal yang jelas dan tidak ambigu:
+  // 1. BUY: ada sinyal beli hari ini
+  // 2. Jika punya posisi aktif terbuka: HOLD_ACTIVE -> "Hold (Posisi Aktif)"
+  // 3. Jika tidak punya posisi & tidak ada sinyal beli: WAIT & SEE -> "Wait & See"
+  const s = (signal ?? "").toUpperCase();
+  const resolvedSignal =
+    s === "BUY" ? "BUY" : hasActivePosition ? "HOLD_ACTIVE" : "WAIT & SEE";
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-surface-1 px-5 py-4">
       <div>
@@ -44,9 +50,8 @@ export function PriceHeader({
           )}
         </div>
       </div>
-      <div className="flex flex-col items-end gap-2">
-        <SignalBadge signal={signal} />
-        <ConvictionMeter filled={filled} total={total} signal={signal} />
+      <div className="flex flex-col items-end gap-1.5">
+        <SignalBadge signal={resolvedSignal} />
       </div>
     </div>
   );

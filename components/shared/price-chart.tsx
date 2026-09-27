@@ -9,6 +9,7 @@ import {
   createSeriesMarkers,
   ColorType,
   CrosshairMode,
+  LineStyle,
   type IChartApi,
   type ISeriesMarkersPluginApi,
   type SeriesMarker,
@@ -98,7 +99,7 @@ export function PriceChart({
   activePosition = null,
   ticker,
   lastClose,
-  height = 480,
+  height = 820,
 }: PriceChartProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const markersPluginRef = React.useRef<ISeriesMarkersPluginApi<Time> | null>(null);
@@ -308,17 +309,63 @@ export function PriceChart({
       bars.filter((b) => b.rsi14 != null).map((b) => ({ time: b.date as Time, value: b.rsi14 as number })),
     );
 
+    // Garis batas atas (70: Overbought), batas bawah (30: Oversold), dan Centerline (50)
+    rsiSeries.createPriceLine({
+      price: 70,
+      color: "rgba(239, 68, 68, 0.75)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: "Overbought (70)",
+    });
+    rsiSeries.createPriceLine({
+      price: 50,
+      color: "rgba(148, 163, 184, 0.45)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "Center (50)",
+    });
+    rsiSeries.createPriceLine({
+      price: 30,
+      color: "rgba(34, 197, 94, 0.75)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: "Oversold (30)",
+    });
+
     // ---- Pane 2: MACD ----
     const macdHist = chart.addSeries(HistogramSeries, { title: "MACD Hist" }, 2);
+    const histBars = bars.filter((b) => b.macd_hist != null);
     macdHist.setData(
-      bars
-        .filter((b) => b.macd_hist != null)
-        .map((b) => ({
+      histBars.map((b, idx) => {
+        const val = b.macd_hist as number;
+        const prevVal = idx > 0 ? (histBars[idx - 1].macd_hist as number) : val;
+        let color: string;
+        if (val >= 0) {
+          color = val >= prevVal ? "#22c55e" : "#15803d"; // Hijau terang (menguat) vs hijau sedang (melambat)
+        } else {
+          color = val <= prevVal ? "#ef4444" : "#f87171"; // Merah terang (menguat) vs merah pudar (mereda)
+        }
+        return {
           time: b.date as Time,
-          value: b.macd_hist as number,
-          color: (b.macd_hist as number) >= 0 ? "#22c55e" : "#ef4444",
-        })),
+          value: val,
+          color,
+        };
+      }),
     );
+
+    // Garis Nol (Zero Line = 0) untuk batas momentum
+    macdHist.createPriceLine({
+      price: 0,
+      color: "rgba(148, 163, 184, 0.5)",
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "Zero (0)",
+    });
+
     const macdLine = chart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, title: "MACD" }, 2);
     macdLine.setData(
       bars.filter((b) => b.macd != null).map((b) => ({ time: b.date as Time, value: b.macd as number })),
@@ -330,11 +377,14 @@ export function PriceChart({
         .map((b) => ({ time: b.date as Time, value: b.macd_signal as number })),
     );
 
-    // Rasio tinggi antar-pane
+    // Rasio tinggi antar-pane simetris (380 Candlestick, 220 RSI, 220 MACD)
+    // Gunakan setStretchFactor() alih-alih setHeight() karena pada Lightweight Charts v5,
+    // setHeight() mendistribusikan perubahan tinggi ke pane lain sehingga pemanggilan berurutan
+    // saling menimpa. setStretchFactor() menjamin tinggi RSI (pane 1) dan MACD (pane 2) sama persis 1:1.
     const panes = chart.panes();
-    panes[0]?.setHeight(Math.round(height * 0.55));
-    panes[1]?.setHeight(Math.round(height * 0.2));
-    panes[2]?.setHeight(Math.round(height * 0.25));
+    panes[0]?.setStretchFactor(380);
+    panes[1]?.setStretchFactor(220);
+    panes[2]?.setStretchFactor(220);
 
     chart.timeScale().fitContent();
 

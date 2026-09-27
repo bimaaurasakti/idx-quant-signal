@@ -169,9 +169,8 @@ async function tickerDetail(ticker: string): Promise<TickerDetailResponse> {
   }
 
   const priceBars = fullBars.map(mapPriceBar);
-  const backtestTrades = (tradesRes.data ?? []).map(mapTradeRow);
   const closedTrades = (closedPositionsRes.data ?? []).map(mapOngoingClosedToTradeRow);
-  const trades = backtestTrades.length > 0 ? backtestTrades : closedTrades;
+  const trades = closedTrades;
   const { change, change_pct } = computeChangeAndChangePct(priceBars);
 
   return {

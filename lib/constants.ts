@@ -32,6 +32,9 @@ export function signalColors(signal: SignalType): SignalColorToken {
   if (s === "BUY") return { fg: "var(--bullish)", bg: "var(--bullish-bg)", label: "Buy" };
   if (s === "SELL") return { fg: "var(--bearish)", bg: "var(--bearish-bg)", label: "Sell" };
   if (s === "HOLD") return { fg: "var(--signal-hold)", bg: "var(--signal-hold-bg)", label: "Hold" };
+  if (s === "HOLD_ACTIVE") return { fg: "var(--signal-hold)", bg: "var(--signal-hold-bg)", label: "Hold (Posisi Aktif)" };
+  if (s === "WAIT" || s === "WAIT & SEE") return { fg: "var(--text-secondary)", bg: "rgba(148,163,184,0.15)", label: "Wait & See" };
+  if (s === "NETRAL") return { fg: "var(--text-secondary)", bg: "rgba(148,163,184,0.15)", label: "Netral" };
   return { fg: "var(--text-muted)", bg: "rgba(148,163,184,0.12)", label: "–" };
 }
 

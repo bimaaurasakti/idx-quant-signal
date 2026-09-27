@@ -22,6 +22,7 @@ export interface SelectProps {
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
+  align?: "start" | "center" | "end";
 }
 
 export function Select({
@@ -34,6 +35,7 @@ export function Select({
   className,
   triggerClassName,
   disabled = false,
+  align = "start",
 }: SelectProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -65,7 +67,7 @@ export function Select({
       <PopoverPrimitive.Trigger
         disabled={disabled}
         className={cn(
-          "inline-flex h-8 items-center justify-between gap-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-[12.5px] font-medium text-text-primary transition-all duration-100 outline-none",
+          "inline-flex w-full h-8 items-center justify-between gap-2 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-[12.5px] font-medium text-text-primary transition-all duration-100 outline-none",
           "hover:border-border-strong hover:bg-surface-2/60",
           "focus-visible:border-brand focus-visible:ring-[3px] focus-visible:ring-brand/25",
           "disabled:cursor-not-allowed disabled:opacity-50",
@@ -81,7 +83,7 @@ export function Select({
 
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
-          align="start"
+          align={align}
           sideOffset={4}
           className="z-50 min-w-[180px] max-w-[280px] overflow-hidden rounded-md border border-border bg-surface-1 p-1 text-text-primary shadow-lg outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 duration-100"
         >
