@@ -231,3 +231,22 @@ export interface BacktestRunResponse {
   equity_curve: number[];
   last_trade_confirmation: { filled: number; total: number } | null;
 }
+
+// ---------------- TradingView Bar Replay State ----------------
+export interface ReplayPositionState {
+  status: "FLAT" | "HOLDING";
+  trade: TradeRow | null;
+  floatingPnL: number | null; // % keuntungan/kerugian di lilin saat ini
+  entryPrice: number | null;
+  currentClose: number;
+  holdDaysElapsed: number;
+}
+
+export interface ReplayCumulativeMetrics {
+  totalTrades: number;
+  closedTrades: TradeRow[];
+  winrate: number | null;
+  realizedReturnPct: number;
+  equityPoints: { time: string; value: number }[];
+}
+
