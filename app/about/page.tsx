@@ -12,6 +12,7 @@ import {
   BookOpen,
   Layers,
   Scale,
+  Sparkles,
 } from "lucide-react";
 
 export default function AboutPage() {
@@ -30,6 +31,9 @@ export default function AboutPage() {
               </Badge>
               <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[11px]">
                 <ShieldCheck className="size-3" /> Hybrid 2-Tier Exit
+              </Badge>
+              <Badge variant="outline" className="border-purple-500/30 bg-purple-500/10 text-purple-400 text-[11px]">
+                <Sparkles className="size-3" /> TradingView Bar Replay
               </Badge>
               <Badge variant="outline" className="border-border bg-surface-1 text-text-secondary text-[11px]">
                 <Scale className="size-3 text-amber-400" /> Max 7 Slots

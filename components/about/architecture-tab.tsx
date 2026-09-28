@@ -175,14 +175,14 @@ export function ArchitectureTab() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-surface-1">
+        <Card className="border-emerald-500/30 bg-surface-1">
           <CardContent className="flex flex-col gap-2 p-4 text-xs">
             <div className="flex items-center gap-2 font-semibold text-text-primary">
-              <Sparkles className="size-4 text-purple-400" />
-              <span>Modernisasi Backtest Lab</span>
+              <Sparkles className="size-4 text-emerald-400" />
+              <span>TradingView Bar Replay (Backtest Lab)</span>
             </div>
             <p className="text-text-secondary leading-relaxed">
-              Modul Backtest Lab sedang dimodernisasi agar dapat menjalankan simulasi interaktif langsung dari tabel harga historis Supabase di sisi client, tanpa memerlukan server komputasi terpisah.
+              Modul Backtest Lab telah terintegrasi penuh dengan simulasi <strong className="text-text-primary">TradingView Bar Replay (True Cut-Off)</strong>. Berjalan 100% di browser memanfaatkan data lilin historis Supabase untuk mensimulasikan pergerakan harga lilin demi lilin tanpa bias masa depan, lengkap dengan HUD status posisi aktif live, floating PnL, speed selector, dan compounding equity curve.
             </p>
           </CardContent>
         </Card>
