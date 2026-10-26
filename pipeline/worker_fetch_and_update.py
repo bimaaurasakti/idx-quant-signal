@@ -98,6 +98,11 @@ def run_monitor_only(client, today):
     active_tickers = fetch_active_position_tickers(client)
     print(f"[MONITOR-ONLY] Memantau {len(active_tickers)} posisi aktif berjalan pada {today}")
 
+    ihsg_raw = fetch_history("^JKSE", period="1y")
+    regime = check_ihsg_regime(ihsg_raw)
+    print(f"[MARKET REGIME] IHSG (^JKSE): {regime['tier']} (Sizing: {int(regime['sizing']*100)}%, MaxPos: {regime['max_pos']})")
+    print(f"                {regime['description']}")
+
     processed, failed = 0, 0
     position_actions = []
 
@@ -107,7 +112,7 @@ def run_monitor_only(client, today):
             raw = fetch_history(ticker_jk, period="6mo")
             if raw is not None and not raw.empty and len(raw) >= 20:
                 d = generate_signals(raw)
-                action = sync_position(client, t, d, sector=get_sector_of(t))
+                action = sync_position(client, t, d, sector=get_sector_of(t), market_regime=regime)
                 processed += 1
                 if action:
                     position_actions.append(action)
@@ -131,7 +136,7 @@ def run_monitor_only(client, today):
             "tickers_processed": processed,
             "tickers_failed": failed,
             "status": "OK" if processed > 0 or len(active_tickers) == 0 else "FAILED",
-            "notes": f"[MONITOR-ONLY] {len(position_actions)} aksi posisi | {elapsed}s",
+            "notes": f"[MONITOR-ONLY | TIER={regime['tier']} | SIZING={int(regime['sizing']*100)}%] {len(position_actions)} aksi posisi | {elapsed}s",
         })
     except Exception as e:
         print(f"[WARN] Gagal mencatat log monitor-only: {e}")

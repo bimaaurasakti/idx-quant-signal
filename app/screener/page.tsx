@@ -17,9 +17,11 @@ export default function ScreenerPage() {
   const { data, isLoading, isError, error } = useScreener();
   const { regime } = useMarketRegime();
 
-  const activeCount = data?.ongoing_positions.length ?? 0;
-  const maxSlots = regime.max_positions || 7;
-  const slotsFull = activeCount >= maxSlots;
+  const activeCount =
+    (data?.ongoing_positions.length ?? 0) + (data?.buy_tomorrow.length ?? 0);
+  const maxSlots = regime.max_positions ?? 7;
+  const isDefensive = regime.tier === "DEFENSIVE";
+  const slotsFull = isDefensive || activeCount >= maxSlots;
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,6 +45,7 @@ export default function ScreenerPage() {
               }`}
             >
               <Scale className="size-3" /> Slot: {activeCount} / {maxSlots} Aktif
+              {isDefensive && " (Risk-Off)"}
             </Badge>
           </div>
         }
@@ -91,7 +94,10 @@ export default function ScreenerPage() {
 
             {slotsFull && (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-300">
-                <strong>Catatan Kapasitas:</strong> Portofolio telah mencapai batas maksimum 7 slot aktif. Sinyal baru disarankan ditahan hingga ada posisi yang closed.
+                <strong>Catatan Kapasitas:</strong>{" "}
+                {isDefensive
+                  ? "Rezim IHSG Risk-Off (Defensive). Pembukaan posisi baru ditahan (0% sizing) untuk mengamankan modal."
+                  : `Portofolio telah mencapai batas maksimum ${maxSlots} slot aktif (${activeCount}/${maxSlots}). Sinyal baru disarankan ditahan hingga ada posisi yang closed.`}
               </div>
             )}
 

@@ -248,16 +248,24 @@ async function metaLastUpdate(): Promise<LastUpdateResponse> {
       Pick<UpdateLogRow, "run_at" | "tickers_processed" | "tickers_failed" | "status" | "notes">
     >("run_at, tickers_processed, tickers_failed, status, notes")
     .order("run_at", { ascending: false })
-    .limit(1);
+    .limit(10);
   assertNoError("update_log", error);
 
   const latest = data?.[0];
+  // Cari baris log terbaru yang mengandung informasi TIER rezim pasar
+  // agar status rezim tidak tertimpa oleh run monitor-only tanpa tag TIER atau skip weekend
+  const logWithTier = data?.find(
+    (row) =>
+      row.notes &&
+      (row.notes.includes("TIER=") || row.notes.includes("IHSG=")),
+  );
+
   return {
     run_at: latest?.run_at ?? null,
     tickers_processed: latest?.tickers_processed ?? null,
     tickers_failed: latest?.tickers_failed ?? null,
     status: (latest?.status as LastUpdateResponse["status"]) ?? null,
-    notes: latest?.notes ?? null,
+    notes: logWithTier?.notes ?? latest?.notes ?? null,
   };
 }
 

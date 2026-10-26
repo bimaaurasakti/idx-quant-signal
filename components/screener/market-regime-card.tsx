@@ -30,8 +30,8 @@ export function MarketRegimeCard({ regime, activeCount }: MarketRegimeCardProps)
     ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
     : "border-rose-500/30 bg-rose-500/15 text-rose-300";
 
-  const maxSlots = regime.max_positions || 7;
-  const slotsFull = activeCount >= maxSlots;
+  const maxSlots = regime.max_positions ?? 7;
+  const slotsFull = isDefensive || activeCount >= maxSlots;
 
   return (
     <div
@@ -75,6 +75,7 @@ export function MarketRegimeCard({ regime, activeCount }: MarketRegimeCardProps)
               }`}
             >
               Kapasitas: {activeCount} / {maxSlots} Posisi
+              {isDefensive && " (Risk-Off: Ditahan)"}
             </Badge>
           </div>
 
