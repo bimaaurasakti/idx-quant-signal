@@ -31,12 +31,17 @@ export function OngoingPositionGrid({ rows }: { rows: OpenPositionRow[] }) {
                     {row.sektor ?? "–"} &bull; {formatDateId(row.entry_date)}
                   </div>
                 </div>
-                <span
-                  className="font-mono text-[15px] font-semibold"
-                  style={{ color: positive ? "var(--bullish)" : "var(--bearish)" }}
-                >
-                  {formatPctId(row.return_pct_now)}
-                </span>
+                <div className="text-right">
+                  <div className="font-mono text-[14px] font-semibold text-text-primary">
+                    {formatIdr(row.last_close)}
+                  </div>
+                  <div
+                    className="font-mono text-[12px] font-semibold"
+                    style={{ color: positive ? "var(--bullish)" : "var(--bearish)" }}
+                  >
+                    {formatPctId(row.return_pct_now)}
+                  </div>
+                </div>
               </div>
 
               {isRunner ? (

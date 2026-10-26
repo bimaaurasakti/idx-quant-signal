@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { SignalBadge } from "@/components/shared/signal-badge";
 import { ConvictionMeter } from "@/components/shared/conviction-meter";
-import { formatDateId } from "@/lib/format";
+import { formatIdr, formatDateId } from "@/lib/format";
 import type { BuyTomorrowRow } from "@/lib/types";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 
@@ -24,7 +24,12 @@ export function BuyTomorrowGrid({ rows }: { rows: BuyTomorrowRow[] }) {
                 </div>
                 <div className="text-[11px] text-text-muted">{row.sektor ?? "–"}</div>
               </div>
-              <SignalBadge signal="BUY" />
+              <div className="flex flex-col items-end gap-1">
+                <div className="font-mono text-[14px] font-semibold text-text-primary">
+                  {formatIdr(row.last_close)}
+                </div>
+                <SignalBadge signal="BUY" />
+              </div>
             </div>
 
             <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-400/90">
